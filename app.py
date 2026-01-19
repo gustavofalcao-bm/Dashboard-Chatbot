@@ -9,12 +9,9 @@ import io
 
 warnings.filterwarnings('ignore')
 
-logo_icon = load_logo(["BM-Icone.png", "BM Ícone.png", "BM-Icone.jpg"])
-logo_full = load_logo(["BASE-MOBILE-Fundo-Transparente.png", "BASE MOBILE - Fundo Transparente.png"])
-
 st.set_page_config(
     page_title="Base Mobile | Gestão de Licenças",
-    page_icon="BM-Icone.png",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -34,7 +31,9 @@ def load_logo(variants):
         if result:
             return result
     return None
-
+    
+logo_icon = load_logo(["BM-Icone.png", "BM Ícone.png", "BM-Icone.jpg"])
+logo_full = load_logo(["BASE-MOBILE-Fundo-Transparente.png", "BASE MOBILE - Fundo Transparente.png"])
 
 # ==================== CORES ====================
 COLORS = {
