@@ -6,7 +6,6 @@ from pathlib import Path
 import warnings
 import base64
 import io
-import numpy as np
 
 warnings.filterwarnings('ignore')
 
@@ -241,10 +240,8 @@ def normalizar_operadora(operadora):
     if pd.isna(operadora):
         return "NÃO INFORMADO"
     
-    # Maiúsculo e primeira palavra
     op = str(operadora).strip().upper().split()[0]
     
-    # Mapear variações comuns
     mapeamento = {
         'CLAROTIM': 'CLARO',
         'VIVOTIM': 'VIVO',
@@ -289,11 +286,9 @@ def load_excel_optimized():
         
         df_completo = pd.concat(dfs, ignore_index=True)
         
-        # Normalizar operadoras
         if 'OPERADORA' in df_completo.columns:
             df_completo['OPERADORA'] = df_completo['OPERADORA'].apply(normalizar_operadora)
         
-        # Converter datas
         date_cols = ['DATA DE ENTREGA', 'DATA DE ATIVAÇÃO', 'DATA DE VENCIMENTO']
         for col in date_cols:
             if col in df_completo.columns:
@@ -327,7 +322,7 @@ def calcular_metricas_rapido(total_rows, df_hash):
 
 @st.cache_data(ttl=7200, show_spinner=False)
 def agregrar_dados_graficos(df_hash):
-    """Dados agregados + novos gráficos"""
+    """Dados agregados + novos gráficos - VERSÃO CORRIGIDA"""
     df = st.session_state.df_loaded
     
     # Operadoras
@@ -341,39 +336,42 @@ def agregrar_dados_graficos(df_hash):
     # Vencimentos
     hoje = pd.Timestamp.now().normalize()
     df_venc = df[df['DATA DE VENCIMENTO'].notna()].copy()
-    df_venc = df_venc[df_venc['DATA DE VENCIMENTO'] > hoje]
+    df_venc_validos = df_venc[df_venc['DATA DE VENCIMENTO'] > hoje]
     
-    if not df_venc.empty:
-        df_venc['dias'] = (df_venc['DATA DE VENCIMENTO'] - hoje).dt.days
+    if not df_venc_validos.empty:
+        df_venc_validos['dias'] = (df_venc_validos['DATA DE VENCIMENTO'] - hoje).dt.days
         bins = [0, 30, 90, 180, 365, float('inf')]
         labels = ['0-30 dias', '31-90 dias', '91-180 dias', '181-365 dias', '+1 ano']
-        df_venc['categoria'] = pd.cut(df_venc['dias'], bins=bins, labels=labels, right=False)
-        venc_cat = df_venc['categoria'].value_counts().reindex(labels, fill_value=0)
+        df_venc_validos['categoria'] = pd.cut(df_venc_validos['dias'], bins=bins, labels=labels, right=False)
+        venc_cat = df_venc_validos['categoria'].value_counts().reindex(labels, fill_value=0)
     else:
-        venc_cat = pd.Series([0]*5, index=['0-30 dias', '31-90 dias', '91-180 dias', '181-365 dias', '+1 ano'])
+        labels = ['0-30 dias', '31-90 dias', '91-180 dias', '181-365 dias', '+1 ano']
+        venc_cat = pd.Series([0]*5, index=labels)
     
     # Timeline
-    if not df_venc.empty:
+    if not df_venc_validos.empty:
         prox_ano = hoje + pd.DateOffset(months=12)
-        df_prox = df_venc[df_venc['DATA DE VENCIMENTO'] <= prox_ano]
+        df_prox = df_venc_validos[df_venc_validos['DATA DE VENCIMENTO'] <= prox_ano]
         df_prox['mes'] = df_prox['DATA DE VENCIMENTO'].dt.to_period('M')
         venc_mensal = df_prox.groupby('mes').size().reset_index(name='Quantidade')
         venc_mensal['mes'] = venc_mensal['mes'].dt.to_timestamp()
     else:
         venc_mensal = pd.DataFrame(columns=['mes', 'Quantidade'])
     
-    # NOVO: Taxa de ocupação por operadora
+    # CORRIGIDO: Taxa de ocupação por operadora
+    total_geral = len(df)
     df_ocup = df.groupby('OPERADORA').size().reset_index(name='Total')
-    df_ocup['Percentual'] = (df_ocup['Total'] / df_ocup['Total'].sum() * 100).round(1)
+    df_ocup['Percentual'] = (df_ocup['Total'] / total_geral * 100).round(1)
+    df_ocup = df_ocup.sort_values('Total', ascending=False)
     
-    # NOVO: Crescimento temporal (ativações por mês)
+    # CORRIGIDO: Crescimento temporal
     if 'DATA DE ATIVAÇÃO' in df.columns:
         df_ativ = df[df['DATA DE ATIVAÇÃO'].notna()].copy()
         if not df_ativ.empty:
             df_ativ['mes_ativ'] = df_ativ['DATA DE ATIVAÇÃO'].dt.to_period('M')
             cresc_mensal = df_ativ.groupby('mes_ativ').size().reset_index(name='Ativações')
             cresc_mensal['mes_ativ'] = cresc_mensal['mes_ativ'].dt.to_timestamp()
-            cresc_mensal = cresc_mensal.tail(12)  # Últimos 12 meses
+            cresc_mensal = cresc_mensal.sort_values('mes_ativ').tail(12)
         else:
             cresc_mensal = pd.DataFrame(columns=['mes_ativ', 'Ativações'])
     else:
@@ -420,7 +418,7 @@ def init_llm_optimized():
         return ChatGroq(
             model="llama-3.1-8b-instant",
             temperature=0,
-            max_tokens=400,  # Aumentado para tabelas
+            max_tokens=400,
             timeout=60,
             groq_api_key=api_key
         )
@@ -433,24 +431,18 @@ def gerar_contexto_gerencial(df):
     """Gera contexto gerencial estruturado"""
     hoje = datetime.now()
     
-    # Métricas principais
     total = len(df)
     df_venc = df[df['DATA DE VENCIMENTO'].notna()]
     validas = len(df_venc[df_venc['DATA DE VENCIMENTO'] > hoje])
     expiradas = len(df_venc[df_venc['DATA DE VENCIMENTO'] <= hoje])
     
-    # Top operadoras
     top_op = df['OPERADORA'].value_counts().head(5).to_dict()
-    
-    # Top projetos
     top_proj = df['PROJETO'].value_counts().head(5).to_dict()
     
-    # Vencimentos próximos
     df_venc_fut = df_venc[df_venc['DATA DE VENCIMENTO'] > hoje]
     prox_30d = len(df_venc_fut[df_venc_fut['DATA DE VENCIMENTO'] <= hoje + timedelta(days=30)])
     prox_90d = len(df_venc_fut[df_venc_fut['DATA DE VENCIMENTO'] <= hoje + timedelta(days=90)])
     
-    # Taxa de renovação
     taxa_validas = (validas / total * 100) if total > 0 else 0
     
     return {
@@ -471,7 +463,6 @@ def process_chat_gerencial(question, df):
     
     ctx = gerar_contexto_gerencial(df)
     
-    # Prompt otimizado para respostas gerenciais
     contexto = f"""
 Você é um ANALISTA SÊNIOR DE GESTÃO DE LICENÇAS da Base Mobile.
 
@@ -650,7 +641,7 @@ with tab1:
     
     dados_graficos = agregrar_dados_graficos(df_hash)
     
-    # LINHA 1: Operadoras e Projetos
+    # LINHA 1
     col1, col2 = st.columns(2)
     
     with col1:
@@ -713,7 +704,7 @@ with tab1:
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # LINHA 2: Vencimentos
+    # LINHA 2
     col1, col2 = st.columns(2)
     
     with col1:
@@ -772,11 +763,10 @@ with tab1:
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # LINHA 3: NOVOS GRÁFICOS
+    # LINHA 3
     col1, col2 = st.columns(2)
     
     with col1:
-        # Taxa de ocupação por operadora
         df_ocup = dados_graficos['ocupacao']
         
         fig = go.Figure(data=[go.Bar(
@@ -806,7 +796,6 @@ with tab1:
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
-        # Crescimento temporal (ativações)
         cresc_mensal = dados_graficos['crescimento']
         
         if not cresc_mensal.empty:
@@ -832,7 +821,7 @@ with tab1:
             
             st.plotly_chart(fig, use_container_width=True)
 
-# ==================== TAB 2: CHAT GERENCIAL ====================
+# ==================== TAB 2: CHAT ====================
 with tab2:
     st.markdown("### 💬 Assistente Executivo IA")
     st.caption("Análises estratégicas com tabelas e recomendações práticas")
@@ -863,13 +852,11 @@ with tab2:
     
     st.markdown("---")
     
-    # Chat container - MENSAGENS MAIS RECENTES NO TOPO
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     
     if not st.session_state.messages:
         st.info("💡 **Dica:** Clique em um botão acima para análises estratégicas ou digite perguntas personalizadas")
     else:
-        # Inverter ordem (mais recentes primeiro)
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🤖"):
                 st.markdown(msg["content"])
@@ -878,7 +865,6 @@ with tab2:
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Input
     if user_input := st.chat_input("💭 Digite sua pergunta executiva..."):
         load_spot = st.empty()
         with load_spot:
