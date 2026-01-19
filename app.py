@@ -322,7 +322,7 @@ def init_llm_optimized():
         
         # Ler a chave diretamente
         try:
-            api_key = st.secrets["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"]
+            api_key = st.secrets["GROQ_API_KEY"]
         except KeyError:
             st.warning("⚠️ GROQ_API_KEY não configurada nas Secrets")
             return None
@@ -665,6 +665,7 @@ with tab2:
 
 st.markdown("---")
 st.caption("Base Mobile 2026 | Gestão de Licenças")
+
 
 
 
