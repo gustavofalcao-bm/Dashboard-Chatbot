@@ -1,0 +1,27 @@
+name: Keep App Alive
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Ping Streamlit App
+        run: |
+          echo "🔄 Mantendo app ativo..."
+          # Você vai atualizar essa URL depois do deploy
+          response=$(curl -I -s -o /dev/null -w "%{http_code}" https://MUDE-DEPOIS.streamlit.app)
+          echo "📊 Status Code: $response"
+          
+          if [ $response -eq 200 ]; then
+            echo "✅ App está rodando!"
+          else
+            echo "⚠️ App retornou código $response"
+          fi
+      
+      - name: Timestamp
+        run: echo "⏰ Executado em $(date)"
