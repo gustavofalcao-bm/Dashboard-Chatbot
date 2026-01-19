@@ -59,7 +59,6 @@ st.markdown(f"""
     
     .stApp {{ background: linear-gradient(135deg, #f5f7fa 0%, #e8ecef 100%); }}
     
-    /* SIDEBAR COM ÍCONES VISÍVEIS */
     [data-testid="stSidebar"] {{
         background: linear-gradient(180deg, {COLORS['secondary']} 0%, {COLORS['accent']} 50%, #2ecc71 100%) !important;
         box-shadow: 5px 0 20px rgba(0,0,0,0.1);
@@ -86,7 +85,6 @@ st.markdown(f"""
         box-shadow: 0 5px 20px rgba(0,0,0,0.2);
     }}
     
-    /* ÍCONES COM CONTRASTE */
     [data-testid="stSidebar"] .stMarkdown {{
         text-shadow: 0 2px 4px rgba(0,0,0,0.4);
     }}
@@ -159,7 +157,6 @@ st.markdown(f"""
         transform: translateY(-3px);
     }}
     
-    /* CHAT OTIMIZADO - SEM CAIXA BRANCA */
     .chat-container {{
         max-height: 600px;
         overflow-y: auto !important;
@@ -175,7 +172,6 @@ st.markdown(f"""
         border-radius: 10px;
     }}
     
-    /* Mensagens com estilo limpo */
     .stChatMessage {{
         background: white !important;
         border-radius: 12px !important;
@@ -228,15 +224,9 @@ def show_loading(message="Carregando"):
     </div>
     """, unsafe_allow_html=True)
 
-# ==================== NORMALIZAÇÃO DE OPERADORAS ====================
+# ==================== NORMALIZAÇÃO ====================
 
 def normalizar_operadora(operadora):
-    """
-    Normaliza operadoras:
-    - CLARO, Claro → CLARO
-    - ALGAR VIVO, ALGAR TIM → ALGAR
-    - Pega só primeira palavra em maiúsculo
-    """
     if pd.isna(operadora):
         return "NÃO INFORMADO"
     
@@ -250,11 +240,10 @@ def normalizar_operadora(operadora):
     
     return mapeamento.get(op, op)
 
-# ==================== CARREGAMENTO ULTRA OTIMIZADO ====================
+# ==================== CARREGAMENTO ====================
 
 @st.cache_data(ttl=7200, show_spinner=False)
 def load_excel_optimized():
-    """Carregamento otimizado com normalização"""
     try:
         excel_path = Path("MAPEAMENTO DE CHIPS.xlsx")
         if not excel_path.exists():
@@ -302,7 +291,6 @@ def load_excel_optimized():
 
 @st.cache_data(ttl=7200, show_spinner=False)
 def calcular_metricas_rapido(total_rows, df_hash):
-    """Métricas rápidas"""
     df = st.session_state.df_loaded
     
     hoje = pd.Timestamp.now().normalize()
@@ -321,8 +309,8 @@ def calcular_metricas_rapido(total_rows, df_hash):
     }
 
 @st.cache_data(ttl=7200, show_spinner=False)
-def agregrar_dados_graficos(df_hash):
-    """Dados agregados + novos gráficos - VERSÃO CORRIGIDA"""
+def agregrar_dados_graficos(df_hash, versao=2):
+    """Dados agregados - VERSÃO 2 COM CACHE INVALIDADO"""
     df = st.session_state.df_loaded
     
     # Operadoras
@@ -358,13 +346,14 @@ def agregrar_dados_graficos(df_hash):
     else:
         venc_mensal = pd.DataFrame(columns=['mes', 'Quantidade'])
     
-    # CORRIGIDO: Taxa de ocupação por operadora
+    # Taxa de ocupação (DataFrame completo!)
     total_geral = len(df)
-    df_ocup = df.groupby('OPERADORA').size().reset_index(name='Total')
+    df_ocup = df.groupby('OPERADORA', as_index=False).size()
+    df_ocup.columns = ['Operadora', 'Total']
     df_ocup['Percentual'] = (df_ocup['Total'] / total_geral * 100).round(1)
     df_ocup = df_ocup.sort_values('Total', ascending=False)
     
-    # CORRIGIDO: Crescimento temporal
+    # Crescimento temporal
     if 'DATA DE ATIVAÇÃO' in df.columns:
         df_ativ = df[df['DATA DE ATIVAÇÃO'].notna()].copy()
         if not df_ativ.empty:
@@ -398,7 +387,7 @@ def export_to_excel(df, filename):
         df.to_excel(writer, index=False, sheet_name='Licenças')
     return output.getvalue()
 
-# ==================== CHATBOT COM TABELAS ====================
+# ==================== CHATBOT ====================
 
 if 'messages' not in st.session_state:
     st.session_state.messages = []
@@ -409,7 +398,6 @@ if 'llm_initialized' not in st.session_state:
 
 @st.cache_resource(show_spinner=False)
 def init_llm_optimized():
-    """LLM Groq otimizado"""
     try:
         from langchain_groq import ChatGroq
         
@@ -428,7 +416,6 @@ def init_llm_optimized():
         return None
 
 def gerar_contexto_gerencial(df):
-    """Gera contexto gerencial estruturado"""
     hoje = datetime.now()
     
     total = len(df)
@@ -457,7 +444,6 @@ def gerar_contexto_gerencial(df):
     }
 
 def process_chat_gerencial(question, df):
-    """Chat com respostas gerenciais (tabelas e matrizes)"""
     if df is None or df.empty:
         return {"answer": "❌ Dados não disponíveis.", "time": 0}
     
@@ -609,7 +595,7 @@ st.markdown("---")
 # ==================== TABS ====================
 tab1, tab2 = st.tabs(["📊 Dashboard Executivo", "💬 Assistente IA"])
 
-# ==================== TAB 1: DASHBOARD ====================
+# ==================== TAB 1 ====================
 with tab1:
     st.markdown("### 🎯 Indicadores Principais")
     
@@ -639,7 +625,7 @@ with tab1:
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown("### 📊 Análises Estratégicas")
     
-    dados_graficos = agregrar_dados_graficos(df_hash)
+    dados_graficos = agregrar_dados_graficos(df_hash, versao=2)
     
     # LINHA 1
     col1, col2 = st.columns(2)
@@ -821,7 +807,7 @@ with tab1:
             
             st.plotly_chart(fig, use_container_width=True)
 
-# ==================== TAB 2: CHAT ====================
+# ==================== TAB 2 ====================
 with tab2:
     st.markdown("### 💬 Assistente Executivo IA")
     st.caption("Análises estratégicas com tabelas e recomendações práticas")
