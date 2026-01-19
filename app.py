@@ -101,7 +101,7 @@ st.markdown("""
 def carregar_planilha_otimizado(versao=3):
     """Carrega planilha Excel da pasta local - VERSÃO 3.0"""
     try:
-        arquivo = "MAPEAMENTO.xlsx"
+        arquivo = "MAPEAMENTO DE CHIPS.xlsx"
         
         # Colunas necessárias
         colunas_usar = [
@@ -649,3 +649,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
