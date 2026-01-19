@@ -316,23 +316,35 @@ if 'llm_initialized' not in st.session_state:
 
 @st.cache_resource(show_spinner=False)
 def init_llm_optimized():
+    """LLM com Groq (funciona no Streamlit Cloud)"""
     try:
-        from langchain_groq import ChatGroq
+        # Tentar pegar a chave de diferentes formas
+        api_key = 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
         
-        api_key = st.secrets.get("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", None)
+        # Método 1: st.secrets (Streamlit Cloud)
+        if "GROQ_API_KEY" in st.secrets:
+            api_key = st.secrets["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"]
         
+        # Método 2: Verificar se é string direta
+        elif hasattr(st.secrets, "get"):
+            api_key = st.secrets.get("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")
+        
+        # Debug: mostrar se encontrou
         if not api_key:
-            st.error("⚠️ Configure GROQ_API_KEY nas secrets do Streamlit")
+            st.error("❌ GROQ_API_KEY não encontrada nas secrets!")
+            st.info("🔍 Debug: Verifique se salvou as secrets corretamente")
             return None
         
+        # Inicializar Groq
         return ChatGroq(
             model="llama-3.1-70b-versatile",
             temperature=0,
             max_tokens=300,
             api_key=api_key
         )
+        
     except Exception as e:
-        st.error(f"Erro ao inicializar Groq: {e}")
+        st.error(f"❌ Erro ao inicializar Groq: {str(e)}")
         return None
 
 
@@ -648,4 +660,5 @@ with tab2:
 
 st.markdown("---")
 st.caption("Base Mobile 2026 | Gestão de Licenças")
+
 
