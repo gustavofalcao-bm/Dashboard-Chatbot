@@ -318,34 +318,39 @@ if 'llm_initialized' not in st.session_state:
 def init_llm_optimized():
     """LLM com Groq (funciona no Streamlit Cloud)"""
     try:
-        # Tentar pegar a chave de diferentes formas
-        api_key = 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
+        from langchain_groq import ChatGroq
         
-        # Método 1: st.secrets (Streamlit Cloud)
-        if "GROQ_API_KEY" in st.secrets:
+        # Ler a chave diretamente
+        try:
             api_key = st.secrets["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"]
+        except KeyError:
+            st.warning("⚠️ GROQ_API_KEY não configurada nas Secrets")
+            return None
+        except Exception as e:
+            st.error(f"Erro ao ler secrets: {e}")
+            return None
         
-        # Método 2: Verificar se é string direta
-        elif hasattr(st.secrets, "get"):
-            api_key = st.secrets.get("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")
-        
-        # Debug: mostrar se encontrou
-        if not api_key:
-            st.error("❌ GROQ_API_KEY não encontrada nas secrets!")
-            st.info("🔍 Debug: Verifique se salvou as secrets corretamente")
+        # Validar se a chave existe e não está vazia
+        if not api_key or api_key.strip() == "":
+            st.warning("⚠️ GROQ_API_KEY está vazia")
             return None
         
         # Inicializar Groq
-        return ChatGroq(
+        llm = ChatGroq(
             model="llama-3.1-70b-versatile",
             temperature=0,
             max_tokens=300,
-            api_key=api_key
+            groq_api_key=api_key  # Mudei de api_key para groq_api_key
         )
+        
+        return llm
         
     except Exception as e:
         st.error(f"❌ Erro ao inicializar Groq: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
         return None
+
 
 
 
@@ -660,5 +665,6 @@ with tab2:
 
 st.markdown("---")
 st.caption("Base Mobile 2026 | Gestão de Licenças")
+
 
 
