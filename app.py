@@ -319,7 +319,7 @@ def init_llm_optimized():
     try:
         from langchain_groq import ChatGroq
         
-        api_key = st.secrets.get("OoIzqDaLupPS80u8934nWGdyb3FYpBpLP9vwxnIti9bAV7juaxiA", None)
+        api_key = st.secrets.get("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", None)
         
         if not api_key:
             st.error("⚠️ Configure GROQ_API_KEY nas secrets do Streamlit")
@@ -648,3 +648,4 @@ with tab2:
 
 st.markdown("---")
 st.caption("Base Mobile 2026 | Gestão de Licenças")
+
