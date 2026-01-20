@@ -243,15 +243,17 @@ def normalizar_operadora(operadora):
 # ==================== CARREGAMENTO ====================
 
 @st.cache_data(ttl=7200, show_spinner=False)
-def load_excel_optimized():
+def load_excel_optimized(versao=3):
+    """VERSÃO 3.0 - Com novas colunas ÚLTIMA CONEXÃO e STATUS NA OP."""
     try:
         excel_path = Path("MAPEAMENTO DE CHIPS.xlsx")
         if not excel_path.exists():
             return pd.DataFrame()
         
         cols_needed = [
-            'PROJETO', 'OPERADORA', 
-            'DATA DE ENTREGA', 'DATA DE ATIVAÇÃO', 'DATA DE VENCIMENTO'
+            'PROJETO', 'ICCID', 'OPERADORA', 
+            'DATA DE ENTREGA', 'DATA DE ATIVAÇÃO', 'DATA DE VENCIMENTO',
+            'ÚLTIMA CONEXÃO', 'STATUS NA OP.'
         ]
         
         all_sheets = pd.read_excel(
@@ -275,18 +277,50 @@ def load_excel_optimized():
         
         df_completo = pd.concat(dfs, ignore_index=True)
         
+        # Normalizar operadora
         if 'OPERADORA' in df_completo.columns:
             df_completo['OPERADORA'] = df_completo['OPERADORA'].apply(normalizar_operadora)
         
-        date_cols = ['DATA DE ENTREGA', 'DATA DE ATIVAÇÃO', 'DATA DE VENCIMENTO']
+        # Parse de datas
+        date_cols = ['DATA DE ENTREGA', 'DATA DE ATIVAÇÃO', 'DATA DE VENCIMENTO', 'ÚLTIMA CONEXÃO']
         for col in date_cols:
             if col in df_completo.columns:
                 df_completo[col] = pd.to_datetime(df_completo[col], errors='coerce', format='mixed')
+        
+        # CALCULAR STATUS DA LICENÇA (automático)
+        hoje = pd.Timestamp.now().normalize()
+        if 'DATA DE VENCIMENTO' in df_completo.columns:
+            df_completo['STATUS_LICENCA'] = df_completo['DATA DE VENCIMENTO'].apply(
+                lambda x: 'Expirado' if pd.notna(x) and x < hoje else 'Válido'
+            )
+        
+        # CALCULAR CATEGORIA DE CONEXÃO
+        if 'ÚLTIMA CONEXÃO' in df_completo.columns:
+            def categorizar_conexao(data_conexao):
+                if pd.isna(data_conexao):
+                    return 'Nunca Conectou'
+                dias = (hoje - data_conexao).days
+                if dias <= 30:
+                    return '0-30 dias'
+                elif dias <= 90:
+                    return '31-90 dias'
+                elif dias <= 180:
+                    return '91-180 dias'
+                else:
+                    return 'Mais de 180 dias'
+            
+            df_completo['CATEGORIA_CONEXAO'] = df_completo['ÚLTIMA CONEXÃO'].apply(categorizar_conexao)
+        
+        # Normalizar STATUS NA OP
+        if 'STATUS NA OP.' in df_completo.columns:
+            df_completo['STATUS NA OP.'] = df_completo['STATUS NA OP.'].astype(str).str.strip().str.title()
         
         return df_completo
     
     except Exception as e:
         st.error(f"Erro: {e}")
+        import traceback
+        st.code(traceback.format_exc())
         return pd.DataFrame()
 
 @st.cache_data(ttl=7200, show_spinner=False)
@@ -309,21 +343,37 @@ def calcular_metricas_rapido(total_rows, df_hash):
     }
 
 @st.cache_data(ttl=7200, show_spinner=False)
-def agregrar_dados_graficos(df_hash, versao=2):
-    """Dados agregados - VERSÃO 2 COM CACHE INVALIDADO"""
+def agregrar_dados_graficos(df_hash, filtros_hash, versao=3):
+    """VERSÃO 3.0 - Com filtros dinâmicos e novos gráficos"""
     df = st.session_state.df_loaded
     
+    # APLICAR FILTROS
+    filtros = st.session_state.get('filtros_ativos', {})
+    df_filtrado = df.copy()
+    
+    if filtros.get('projetos'):
+        df_filtrado = df_filtrado[df_filtrado['PROJETO'].isin(filtros['projetos'])]
+    
+    if filtros.get('operadoras'):
+        df_filtrado = df_filtrado[df_filtrado['OPERADORA'].isin(filtros['operadoras'])]
+    
+    if filtros.get('status_op'):
+        df_filtrado = df_filtrado[df_filtrado['STATUS NA OP.'].isin(filtros['status_op'])]
+    
+    if filtros.get('status_licenca'):
+        df_filtrado = df_filtrado[df_filtrado['STATUS_LICENCA'].isin(filtros['status_licenca'])]
+    
     # Operadoras
-    df_op = df['OPERADORA'].value_counts().reset_index()
+    df_op = df_filtrado['OPERADORA'].value_counts().reset_index()
     df_op.columns = ['Operadora', 'Qtd']
     
     # Projetos
-    df_proj = df['PROJETO'].value_counts().head(10).reset_index()
+    df_proj = df_filtrado['PROJETO'].value_counts().head(10).reset_index()
     df_proj.columns = ['Projeto', 'Qtd']
     
     # Vencimentos
     hoje = pd.Timestamp.now().normalize()
-    df_venc = df[df['DATA DE VENCIMENTO'].notna()].copy()
+    df_venc = df_filtrado[df_filtrado['DATA DE VENCIMENTO'].notna()].copy()
     df_venc_validos = df_venc[df_venc['DATA DE VENCIMENTO'] > hoje]
     
     if not df_venc_validos.empty:
@@ -346,16 +396,23 @@ def agregrar_dados_graficos(df_hash, versao=2):
     else:
         venc_mensal = pd.DataFrame(columns=['mes', 'Quantidade'])
     
-    # Taxa de ocupação (DataFrame completo!)
-    total_geral = len(df)
-    df_ocup = df.groupby('OPERADORA', as_index=False).size()
-    df_ocup.columns = ['Operadora', 'Total']
-    df_ocup['Percentual'] = (df_ocup['Total'] / total_geral * 100).round(1)
-    df_ocup = df_ocup.sort_values('Total', ascending=False)
+    # NOVO: Análise de Conexões
+    if 'CATEGORIA_CONEXAO' in df_filtrado.columns:
+        df_conexao = df_filtrado['CATEGORIA_CONEXAO'].value_counts().reset_index()
+        df_conexao.columns = ['Categoria', 'Qtd']
+    else:
+        df_conexao = pd.DataFrame(columns=['Categoria', 'Qtd'])
+    
+    # NOVO: Status nas Operadoras
+    if 'STATUS NA OP.' in df_filtrado.columns:
+        df_status_op = df_filtrado['STATUS NA OP.'].value_counts().reset_index()
+        df_status_op.columns = ['Status', 'Qtd']
+    else:
+        df_status_op = pd.DataFrame(columns=['Status', 'Qtd'])
     
     # Crescimento temporal
-    if 'DATA DE ATIVAÇÃO' in df.columns:
-        df_ativ = df[df['DATA DE ATIVAÇÃO'].notna()].copy()
+    if 'DATA DE ATIVAÇÃO' in df_filtrado.columns:
+        df_ativ = df_filtrado[df_filtrado['DATA DE ATIVAÇÃO'].notna()].copy()
         if not df_ativ.empty:
             df_ativ['mes_ativ'] = df_ativ['DATA DE ATIVAÇÃO'].dt.to_period('M')
             cresc_mensal = df_ativ.groupby('mes_ativ').size().reset_index(name='Ativações')
@@ -371,7 +428,8 @@ def agregrar_dados_graficos(df_hash, versao=2):
         'projetos': df_proj,
         'venc_categorias': venc_cat,
         'venc_mensal': venc_mensal,
-        'ocupacao': df_ocup,
+        'conexoes': df_conexao,
+        'status_op': df_status_op,
         'crescimento': cresc_mensal
     }
 
@@ -395,6 +453,8 @@ if 'df_loaded' not in st.session_state:
     st.session_state.df_loaded = None
 if 'llm_initialized' not in st.session_state:
     st.session_state.llm_initialized = None
+if 'filtros_ativos' not in st.session_state:
+    st.session_state.filtros_ativos = {}
 
 @st.cache_resource(show_spinner=False)
 def init_llm_optimized():
@@ -406,7 +466,7 @@ def init_llm_optimized():
         return ChatGroq(
             model="llama-3.1-8b-instant",
             temperature=0,
-            max_tokens=400,
+            max_tokens=500,
             timeout=60,
             groq_api_key=api_key
         )
@@ -416,6 +476,7 @@ def init_llm_optimized():
         return None
 
 def gerar_contexto_gerencial(df):
+    """VERSÃO 3.0 - Contexto atualizado com novos campos"""
     hoje = datetime.now()
     
     total = len(df)
@@ -432,6 +493,22 @@ def gerar_contexto_gerencial(df):
     
     taxa_validas = (validas / total * 100) if total > 0 else 0
     
+    # NOVO: Análise de Conexões
+    if 'CATEGORIA_CONEXAO' in df.columns:
+        nunca_conectou = len(df[df['CATEGORIA_CONEXAO'] == 'Nunca Conectou'])
+        taxa_conexao = ((total - nunca_conectou) / total * 100) if total > 0 else 0
+    else:
+        nunca_conectou = 0
+        taxa_conexao = 0
+    
+    # NOVO: Status na OP
+    if 'STATUS NA OP.' in df.columns:
+        ativos_op = len(df[df['STATUS NA OP.'] == 'Ativo'])
+        suspensos_op = len(df[df['STATUS NA OP.'] == 'Suspenso'])
+    else:
+        ativos_op = 0
+        suspensos_op = 0
+    
     return {
         'total': total,
         'validas': validas,
@@ -439,6 +516,10 @@ def gerar_contexto_gerencial(df):
         'prox_30d': prox_30d,
         'prox_90d': prox_90d,
         'taxa_validas': taxa_validas,
+        'nunca_conectou': nunca_conectou,
+        'taxa_conexao': taxa_conexao,
+        'ativos_op': ativos_op,
+        'suspensos_op': suspensos_op,
         'top_operadoras': top_op,
         'top_projetos': top_proj
     }
@@ -459,28 +540,42 @@ DADOS CONSOLIDADOS:
 - Expirando em 30 dias: {ctx['prox_30d']:,}
 - Expirando em 90 dias: {ctx['prox_90d']:,}
 
+CONEXÕES:
+- Nunca Conectaram: {ctx['nunca_conectou']:,}
+- Taxa de Conexão: {ctx['taxa_conexao']:.1f}%
+
+STATUS NAS OPERADORAS:
+- Chips Ativos: {ctx['ativos_op']:,}
+- Chips Suspensos: {ctx['suspensos_op']:,}
+
 TOP 5 OPERADORAS:
 {ctx['top_operadoras']}
 
 TOP 5 PROJETOS:
 {ctx['top_projetos']}
 
+GLOSSÁRIO:
+- PROJETO = Estado/Cliente (ex: "Governo da Bahia" = projeto Bahia)
+- ICCID = LINHA = LICENÇA = CHIP (sinônimos)
+- STATUS LICENÇA: Válido (vencimento futuro) ou Expirado (vencimento passado)
+- STATUS NA OP: Ativo/Suspenso/Bloqueado na operadora (independente da licença)
+- ÚLTIMA CONEXÃO: Última vez que o chip conectou na rede
+
 PERGUNTA DO EXECUTIVO: {question}
 
-INSTRUÇÕES PARA RESPOSTA:
+INSTRUÇÕES:
 1. Seja DIRETO e EXECUTIVO (máximo 300 palavras)
-2. Use formatação Markdown SEMPRE (negrito, listas, tabelas)
-3. Quando apresentar dados de projetos/operadoras, use TABELAS Markdown
+2. Use formatação Markdown (negrito, listas, tabelas)
+3. Para projetos/operadoras, use TABELAS Markdown
 4. Destaque RISCOS em **negrito** e OPORTUNIDADES em *itálico*
 5. Termine com 2-3 RECOMENDAÇÕES PRÁTICAS
-6. Use números e % para embasar análises
 
-FORMATO DE TABELA ESPERADO:
+FORMATO DE TABELA:
 | Projeto | Licenças | Status |
 |---------|----------|--------|
 | Projeto A | 10.000 | ⚠️ Crítico |
 
-Responda em português brasileiro, como se estivesse em uma reunião de diretoria.
+Responda em português brasileiro, formato reunião de diretoria.
 """
     
     try:
@@ -514,6 +609,55 @@ with st.sidebar:
     
     st.markdown("### 📊 Gestão de Licenças")
     st.caption("Base Mobile 2026")
+    st.markdown("---")
+    
+    # FILTROS DINÂMICOS
+    st.markdown("### 🎯 Filtros")
+    
+    if st.session_state.df_loaded is not None and not st.session_state.df_loaded.empty:
+        df_temp = st.session_state.df_loaded
+        
+        # Filtro Projeto
+        projetos_disponiveis = sorted(df_temp['PROJETO'].unique())
+        projetos_selecionados = st.multiselect(
+            "Projetos",
+            options=projetos_disponiveis,
+            default=None
+        )
+        st.session_state.filtros_ativos['projetos'] = projetos_selecionados
+        
+        # Filtro Operadora
+        operadoras_disponiveis = sorted(df_temp['OPERADORA'].unique())
+        operadoras_selecionadas = st.multiselect(
+            "Operadoras",
+            options=operadoras_disponiveis,
+            default=None
+        )
+        st.session_state.filtros_ativos['operadoras'] = operadoras_selecionadas
+        
+        # Filtro Status OP
+        if 'STATUS NA OP.' in df_temp.columns:
+            status_op_disponiveis = sorted(df_temp['STATUS NA OP.'].unique())
+            status_op_selecionados = st.multiselect(
+                "Status na OP",
+                options=status_op_disponiveis,
+                default=None
+            )
+            st.session_state.filtros_ativos['status_op'] = status_op_selecionados
+        
+        # Filtro Status Licença
+        if 'STATUS_LICENCA' in df_temp.columns:
+            status_lic_selecionados = st.multiselect(
+                "Status Licença",
+                options=['Válido', 'Expirado'],
+                default=None
+            )
+            st.session_state.filtros_ativos['status_licenca'] = status_lic_selecionados
+        
+        if st.button("🔄 Limpar Filtros", use_container_width=True):
+            st.session_state.filtros_ativos = {}
+            st.rerun()
+    
     st.markdown("---")
     
     st.markdown("### 🎛️ Ações")
@@ -576,7 +720,7 @@ if st.session_state.df_loaded is None:
     with loading_placeholder.container():
         show_loading("Processando base de dados")
     
-    st.session_state.df_loaded = load_excel_optimized()
+    st.session_state.df_loaded = load_excel_optimized(versao=3)
     
     if st.session_state.llm_initialized is None:
         st.session_state.llm_initialized = init_llm_optimized()
@@ -600,6 +744,7 @@ with tab1:
     st.markdown("### 🎯 Indicadores Principais")
     
     df_hash = hash(len(df))
+    filtros_hash = hash(str(st.session_state.filtros_ativos))
     metricas = calcular_metricas_rapido(len(df), df_hash)
     
     col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -625,7 +770,7 @@ with tab1:
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown("### 📊 Análises Estratégicas")
     
-    dados_graficos = agregrar_dados_graficos(df_hash, versao=2)
+    dados_graficos = agregrar_dados_graficos(df_hash, filtros_hash, versao=3)
     
     # LINHA 1
     col1, col2 = st.columns(2)
@@ -659,6 +804,96 @@ with tab1:
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
+        # NOVO: Gráfico de Conexões (ROSCA)
+        df_conexao = dados_graficos['conexoes']
+        
+        if not df_conexao.empty:
+            cores_conexao = {
+                'Nunca Conectou': COLORS['danger'],
+                'Mais de 180 dias': COLORS['warning'],
+                '91-180 dias': COLORS['info'],
+                '31-90 dias': COLORS['secondary'],
+                '0-30 dias': COLORS['accent']
+            }
+            colors_conexao = [cores_conexao.get(cat, COLORS['light']) for cat in df_conexao['Categoria']]
+            
+            fig = go.Figure(data=[go.Pie(
+                labels=df_conexao['Categoria'],
+                values=df_conexao['Qtd'],
+                hole=0.5,
+                marker=dict(colors=colors_conexao, line=dict(color='white', width=3)),
+                textfont=dict(size=14, family='Inter', color='white'),
+                textinfo='label+percent',
+                hovertemplate='<b>%{label}</b><br>Chips: %{value:,}<br>%{percent}<extra></extra>'
+            )])
+            
+            total_conexoes = df_conexao['Qtd'].sum()
+            com_conexao = df_conexao[df_conexao['Categoria'] != 'Nunca Conectou']['Qtd'].sum()
+            perc_conexao = (com_conexao / total_conexoes * 100) if total_conexoes > 0 else 0
+            
+            fig.add_annotation(
+                text=f"<b>{com_conexao:,}</b><br>{perc_conexao:.1f}%<br>conectaram".replace(',', '.'),
+                x=0.5, y=0.5,
+                font=dict(size=16, color=COLORS['accent']),
+                showarrow=False
+            )
+            
+            fig.update_layout(
+                title=dict(text="<b>Análise de Conexões</b>", font=dict(size=20, family='Inter', color=COLORS['primary']), x=0.5, xanchor='center'),
+                height=400,
+                showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5, font=dict(size=11)),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=20, r=20, t=60, b=80)
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # LINHA 2
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # NOVO: Status nas Operadoras (BARRAS)
+        df_status_op = dados_graficos['status_op']
+        
+        if not df_status_op.empty:
+            df_status_op = df_status_op.sort_values('Qtd', ascending=True)
+            
+            cores_status = {
+                'Ativo': COLORS['accent'],
+                'Suspenso': COLORS['warning'],
+                'Bloqueado': COLORS['danger'],
+                'Cancelado': COLORS['light']
+            }
+            colors_status = [cores_status.get(status, COLORS['secondary']) for status in df_status_op['Status']]
+            
+            fig = go.Figure(data=[go.Bar(
+                y=df_status_op['Status'],
+                x=df_status_op['Qtd'],
+                orientation='h',
+                marker=dict(color=colors_status, line=dict(color='white', width=2)),
+                text=df_status_op['Qtd'].apply(lambda x: f"{x:,}".replace(',', '.')),
+                textposition='outside',
+                textfont=dict(size=14, family='Inter', color=COLORS['primary']),
+                hovertemplate='<b>%{y}</b><br>Chips: %{x:,}<extra></extra>'
+            )])
+            
+            fig.update_layout(
+                title=dict(text="<b>Status nas Operadoras</b>", font=dict(size=20, family='Inter', color=COLORS['primary']), x=0.5, xanchor='center'),
+                height=400,
+                yaxis=dict(categoryorder='total ascending', tickfont=dict(size=12, color=COLORS['primary'])),
+                xaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.05)', zeroline=False),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=20, r=60, t=60, b=40)
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
         df_proj = dados_graficos['projetos']
         
         fig = go.Figure(data=[go.Bar(
@@ -690,7 +925,7 @@ with tab1:
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # LINHA 2
+    # LINHA 3
     col1, col2 = st.columns(2)
     
     with col1:
@@ -749,39 +984,10 @@ with tab1:
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # LINHA 3
+    # LINHA 4
     col1, col2 = st.columns(2)
     
     with col1:
-        df_ocup = dados_graficos['ocupacao']
-        
-        fig = go.Figure(data=[go.Bar(
-            x=df_ocup['Operadora'],
-            y=df_ocup['Percentual'],
-            marker=dict(
-                color=df_ocup['Percentual'],
-                colorscale=[[0, COLORS['info']], [1, COLORS['accent']]],
-                line=dict(color='white', width=2)
-            ),
-            text=df_ocup['Percentual'].apply(lambda x: f"{x:.1f}%"),
-            textposition='outside',
-            textfont=dict(size=14, family='Inter', color=COLORS['primary']),
-            hovertemplate='<b>%{x}</b><br>Ocupação: %{y:.1f}%<extra></extra>'
-        )])
-        
-        fig.update_layout(
-            title=dict(text="<b>Taxa de Ocupação por Operadora</b>", font=dict(size=20, family='Inter', color=COLORS['primary']), x=0.5, xanchor='center'),
-            height=400,
-            xaxis=dict(tickfont=dict(size=11, color=COLORS['primary'])),
-            yaxis=dict(title="Percentual (%)", showgrid=True, gridcolor='rgba(0,0,0,0.05)', zeroline=False),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=60, r=40, t=60, b=60)
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
         cresc_mensal = dados_graficos['crescimento']
         
         if not cresc_mensal.empty:
@@ -816,7 +1022,7 @@ with tab2:
         "📊 Resumo Executivo": "Forneça um resumo executivo completo com tabela dos principais projetos, métricas consolidadas e insights estratégicos",
         "⚠️ Análise de Riscos": "Identifique os principais riscos operacionais com tabela de criticidade e recomendações urgentes",
         "📈 Performance Operadoras": "Analise a performance por operadora com tabela comparativa e oportunidades de otimização",
-        "🏆 Ranking Projetos": "Crie ranking dos projetos com tabela de saúde operacional e ações recomendadas",
+        "🔌 Análise de Conexões": "Detalhe a situação das conexões: chips que nunca conectaram, taxa de conectividade por operadora e projetos críticos",
         "📅 Gestão Vencimentos": "Análise detalhada dos vencimentos com tabela de prioridades e plano de ação",
         "💡 Plano de Ação": "Monte um plano de ação executivo com tabela de prioridades e responsabilidades"
     }
