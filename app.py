@@ -72,7 +72,7 @@ COLORS = {
     'algar': '#00C853'
 }
 
-# ==================== CSS PREMIUM 4.1 ====================
+# ==================== CSS PREMIUM 5.1 ====================
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -324,11 +324,6 @@ st.markdown(f"""
         box-shadow: 0 4px 15px rgba(139, 195, 74, 0.3);
     }}
     
-    @keyframes pulse {{
-        0%, 100% {{ opacity: 1; }}
-        50% {{ opacity: 0.5; }}
-    }}
-    
     ::-webkit-scrollbar {{
         width: 12px;
         height: 12px;
@@ -347,33 +342,6 @@ st.markdown(f"""
     
     ::-webkit-scrollbar-thumb:hover {{
         background: linear-gradient(180deg, {COLORS['accent']}, {COLORS['dark_green']});
-    }}
-    
-    /* Chat Styles */
-    .chat-message {{
-        padding: 1.5rem;
-        border-radius: 16px;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-        animation: fadeInUp 0.4s ease-out;
-    }}
-    
-    .chat-message.user {{
-        background: linear-gradient(135deg, {COLORS['secondary']}, {COLORS['accent']});
-        color: white;
-        margin-left: 2rem;
-    }}
-    
-    .chat-message.assistant {{
-        background: white;
-        border: 2px solid {COLORS['light']};
-        margin-right: 2rem;
-    }}
-    
-    .chat-message.assistant h4 {{
-        color: {COLORS['primary']};
-        font-size: 1.1rem;
-        margin-bottom: 0.8rem;
     }}
     
     .text-center {{ text-align: center; }}
@@ -413,7 +381,7 @@ def format_number(num):
 
 @st.cache_data(ttl=7200, show_spinner=False)
 def load_excel_optimized(versao=5):
-    """VERSÃO 5.0 COM PARQUET CACHE"""
+    """VERSÃO 5.1 COM PARQUET CACHE - CORRIGIDO MIXED TYPES"""
     try:
         parquet_path = Path("MAPEAMENTO_DE_CHIPS.parquet")
         excel_path = Path("MAPEAMENTO DE CHIPS.xlsx")
@@ -451,6 +419,12 @@ def load_excel_optimized(versao=5):
         
         df_completo = pd.concat(dfs, ignore_index=True)
         
+        # CONVERSÃO DE TIPOS PARA EVITAR ERRO NO PARQUET
+        colunas_texto = ['PROJETO', 'ICCID', 'OPERADORA', 'STATUS NA OP.']
+        for col in colunas_texto:
+            if col in df_completo.columns:
+                df_completo[col] = df_completo[col].astype(str)
+        
         # Normalização
         if 'OPERADORA' in df_completo.columns:
             df_completo['OPERADORA'] = df_completo['OPERADORA'].apply(normalizar_operadora)
@@ -486,15 +460,24 @@ def load_excel_optimized(versao=5):
             df_completo['CATEGORIA_CONEXAO'] = df_completo['ÚLTIMA CONEXÃO'].apply(categorizar_conexao)
         
         if 'STATUS NA OP.' in df_completo.columns:
-            df_completo['STATUS NA OP.'] = df_completo['STATUS NA OP.'].astype(str).str.strip().str.title()
+            df_completo['STATUS NA OP.'] = df_completo['STATUS NA OP.'].str.strip().str.title()
         
-        # Salvar Parquet para próximas cargas
-        df_completo.to_parquet(parquet_path, compression='snappy')
+        # CONVERSÃO FINAL - Garantir compatibilidade com Parquet
+        for col in df_completo.columns:
+            if df_completo[col].dtype == 'object' and col not in date_cols:
+                df_completo[col] = df_completo[col].astype(str)
+        
+        # Salvar Parquet
+        try:
+            df_completo.to_parquet(parquet_path, compression='snappy', engine='pyarrow')
+        except Exception as parquet_error:
+            # Se falhar, continua sem cache
+            pass
         
         return df_completo
     
     except Exception as e:
-        st.error(f"Erro: {e}")
+        st.error(f"❌ Erro ao carregar dados: {e}")
         import traceback
         st.code(traceback.format_exc())
         return pd.DataFrame()
@@ -1063,7 +1046,7 @@ def processar_mensagem_groq(client, mensagens, df_filtrado):
         
         # Chamar Groq API com streaming
         stream = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",  # Modelo mais avançado gratuito
+            model="llama-3.3-70b-versatile",
             messages=mensagens_completas,
             temperature=0.7,
             max_tokens=2048,
@@ -1096,7 +1079,7 @@ with st.sidebar:
         """, unsafe_allow_html=True)
     
     st.markdown("### 📊 Gestão de Licenças")
-    st.caption("Base Mobile 2026 • v5.0 AI Edition")
+    st.caption("Base Mobile 2026 • v5.1 AI Edition")
     st.markdown("---")
     
     # FILTROS EM FORM
@@ -1165,7 +1148,7 @@ st.markdown(f"""
         </div>
         <div>
             <h1 class="header-title">Dashboard Gerencial de Licenças</h1>
-            <p class="header-subtitle">Sistema Enterprise 5.0 AI Edition | Analytics & Intelligence</p>
+            <p class="header-subtitle">Sistema Enterprise 5.1 AI Edition | Analytics & Intelligence</p>
         </div>
     </div>
 </div>
@@ -1183,7 +1166,7 @@ if st.session_state.df_loaded is None:
 df = st.session_state.df_loaded
 
 if df.empty:
-    st.error("❌ Erro ao carregar dados")
+    st.error("❌ Erro ao carregar dados. Verifique se o arquivo 'MAPEAMENTO DE CHIPS.xlsx' existe.")
     st.stop()
 
 # Aplicar filtros
@@ -1346,7 +1329,6 @@ with tab2:
                 col = col1 if i % 2 == 0 else col2
                 with col:
                     if st.button(pergunta, key=f"sugestao_{i}", use_container_width=True):
-                        # Simular envio da pergunta
                         st.session_state.messages.append({"role": "user", "content": pergunta})
                         st.rerun()
         
@@ -1436,4 +1418,4 @@ with tab3:
     criar_botoes_exportacao(df_exibir)
 
 st.markdown("---")
-st.caption("© 2026 Base Mobile | Dashboard Enterprise v5.0 AI Edition | Powered by Streamlit, Plotly & Groq AI")
+st.caption("© 2026 Base Mobile | Dashboard Enterprise v5.1 AI Edition | Powered by Streamlit, Plotly & Groq AI")
