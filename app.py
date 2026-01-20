@@ -1099,7 +1099,7 @@ st.markdown(f"""
         </div>
         <div>
             <h1 class="header-title">Dashboard Gerencial de Licenças</h1>
-            <p class="header-subtitle">Sistema Enterprise 5.2 AI Edition | Analytics & Insights</p>
+            <p class="header-subtitle">Analytics & Insights</p>
         </div>
     </div>
 </div>
@@ -1329,4 +1329,5 @@ with tab3:
     criar_botoes_exportacao(df_exibir)
 
 st.markdown("---")
-st.caption("© 2026 Base Mobile | Dashboard Enterprise v5.2 AI Edition | Powered by Streamlit + Groq AI")
+st.caption("© 2026 Base Mobile | Dashboard Executivo de Licenças")
+
