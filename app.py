@@ -72,7 +72,7 @@ COLORS = {
     'algar': '#00C853'
 }
 
-# ==================== CSS PREMIUM 5.1 ====================
+# ==================== CSS PREMIUM 5.1 CORRIGIDO ====================
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -157,7 +157,7 @@ st.markdown(f"""
     }}
     
     .header-title {{
-        color: white;
+        color: white !important;
         font-size: 2.5rem;
         font-weight: 900;
         margin: 0;
@@ -459,19 +459,20 @@ def load_excel_optimized(versao=5):
             
             df_completo['CATEGORIA_CONEXAO'] = df_completo['ÚLTIMA CONEXÃO'].apply(categorizar_conexao)
         
+        # Limpar status vazios e normalizar
         if 'STATUS NA OP.' in df_completo.columns:
+            df_completo['STATUS NA OP.'] = df_completo['STATUS NA OP.'].replace(['nan', 'None', ''], 'Não Informado')
             df_completo['STATUS NA OP.'] = df_completo['STATUS NA OP.'].str.strip().str.title()
         
         # CONVERSÃO FINAL - Garantir compatibilidade com Parquet
         for col in df_completo.columns:
             if df_completo[col].dtype == 'object' and col not in date_cols:
-                df_completo[col] = df_completo[col].astype(str)
+                df_completo[col] = df_completo[col].astype(str).replace('nan', 'Não Informado')
         
         # Salvar Parquet
         try:
             df_completo.to_parquet(parquet_path, compression='snappy', engine='pyarrow')
         except Exception as parquet_error:
-            # Se falhar, continua sem cache
             pass
         
         return df_completo
@@ -558,7 +559,7 @@ def agregar_dados_graficos(df_filtrado):
         'status_op': df_status_op
     }
 
-# ==================== GRÁFICOS PREMIUM ====================
+# ==================== GRÁFICOS PREMIUM CORRIGIDOS ====================
 
 def criar_grafico_operadora_premium(dados):
     """Gráfico de Pizza Premium - Operadoras"""
@@ -609,7 +610,7 @@ def criar_grafico_operadora_premium(dados):
             y=-0.15,
             xanchor="center",
             x=0.5,
-            font=dict(size=13, family='Inter', color=COLORS['dark_gray']),
+            font=dict(size=13, family='Inter', color=COLORS['primary']),
             bgcolor='rgba(255,255,255,0.8)',
             bordercolor=COLORS['light'],
             borderwidth=1
@@ -683,7 +684,7 @@ def criar_grafico_conexoes_premium(dados):
             y=-0.18,
             xanchor="center",
             x=0.5,
-            font=dict(size=12, family='Inter', color=COLORS['dark_gray']),
+            font=dict(size=12, family='Inter', color=COLORS['primary']),
             bgcolor='rgba(255,255,255,0.8)',
             bordercolor=COLORS['light'],
             borderwidth=1
@@ -715,7 +716,8 @@ def criar_grafico_status_op_premium(dados):
         'Ativo': COLORS['accent'],
         'Bloqueado': COLORS['warning'],
         'Suspenso': COLORS['danger'],
-        'Cancelado': COLORS['gray']
+        'Cancelado': COLORS['gray'],
+        'Não Informado': COLORS['info']
     }
     colors_list = [cores_status.get(s, COLORS['secondary']) for s in df['Status']]
     
@@ -891,7 +893,6 @@ def gerar_alertas_inteligentes(df):
     alertas = []
     hoje = pd.Timestamp.now().normalize()
     
-    # Licenças expirando em 30 dias
     venc_30 = df[
         (df['DATA DE VENCIMENTO'] > hoje) &
         (df['DATA DE VENCIMENTO'] <= hoje + pd.Timedelta(days=30))
@@ -899,26 +900,22 @@ def gerar_alertas_inteligentes(df):
     if len(venc_30) > 0:
         alertas.append(("warning", f"⚠️ **{len(venc_30)} licenças** vencem nos próximos 30 dias"))
     
-    # Chips sem conexão há mais de 180 dias
     if 'CATEGORIA_CONEXAO' in df.columns:
         sem_conexao_180 = df[df['CATEGORIA_CONEXAO'] == 'Mais de 180 dias']
         if len(sem_conexao_180) > 0:
             alertas.append(("error", f"🔴 **{len(sem_conexao_180)} chips** sem conexão há mais de 180 dias"))
     
-    # Licenças já expiradas
     if 'STATUS_LICENCA' in df.columns:
         expiradas = df[df['STATUS_LICENCA'] == 'Expirado']
         if len(expiradas) > 0:
             alertas.append(("error", f"❌ **{len(expiradas)} licenças** já expiradas - renovação necessária"))
     
-    # Taxa de chips nunca conectados
     if 'CATEGORIA_CONEXAO' in df.columns:
         nunca_conectou = df[df['CATEGORIA_CONEXAO'] == 'Nunca Conectou']
         taxa = len(nunca_conectou) / len(df) * 100 if len(df) > 0 else 0
         if taxa > 15:
             alertas.append(("info", f"📊 **{taxa:.1f}%** dos chips nunca conectaram - investigar"))
     
-    # Exibir alertas
     if alertas:
         st.markdown("### 🚨 Alertas e Recomendações")
         for tipo, mensagem in alertas:
@@ -938,12 +935,9 @@ def criar_botoes_exportacao(df_filtrado):
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        # Excel
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
             df_filtrado.to_excel(writer, sheet_name='Dados Filtrados', index=False)
-            
-            # Sheet de resumo
             resumo = df_filtrado.groupby('OPERADORA').size().reset_index(name='Qtd')
             resumo.to_excel(writer, sheet_name='Resumo por Operadora', index=False)
             
@@ -956,7 +950,6 @@ def criar_botoes_exportacao(df_filtrado):
         )
     
     with col2:
-        # CSV
         csv = df_filtrado.to_csv(index=False, encoding='utf-8-sig')
         st.download_button(
             label="📥 Baixar CSV",
@@ -967,7 +960,6 @@ def criar_botoes_exportacao(df_filtrado):
         )
     
     with col3:
-        # JSON
         json_data = df_filtrado.to_json(orient='records', date_format='iso', force_ascii=False)
         st.download_button(
             label="📥 Baixar JSON",
@@ -1036,15 +1028,12 @@ Se a pergunta fugir do escopo, responda educadamente:
 def processar_mensagem_groq(client, mensagens, df_filtrado):
     """Processa mensagem com Groq e retorna resposta"""
     try:
-        # Criar prompt do sistema
         prompt_sistema = criar_prompt_sistema(df_filtrado)
         
-        # Preparar mensagens com contexto
         mensagens_completas = [
             {"role": "system", "content": prompt_sistema}
         ] + mensagens
         
-        # Chamar Groq API com streaming
         stream = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=mensagens_completas,
@@ -1082,29 +1071,27 @@ with st.sidebar:
     st.caption("Base Mobile 2026 • v5.1 AI Edition")
     st.markdown("---")
     
-    # FILTROS EM FORM
-    with st.form("form_filtros"):
-        st.markdown("### 🎯 Filtros Dinâmicos")
+    st.markdown("### 🎯 Filtros Dinâmicos")
+    
+    if st.session_state.df_loaded is not None and not st.session_state.df_loaded.empty:
+        df_temp = st.session_state.df_loaded
         
-        if st.session_state.df_loaded is not None and not st.session_state.df_loaded.empty:
-            df_temp = st.session_state.df_loaded
-            
-            projetos = st.multiselect("📍 Projetos", sorted(df_temp['PROJETO'].unique()))
-            operadoras = st.multiselect("📡 Operadoras", sorted(df_temp['OPERADORA'].unique()))
-            
-            if 'STATUS NA OP.' in df_temp.columns:
-                status_op = st.multiselect("🔌 Status na OP", sorted(df_temp['STATUS NA OP.'].unique()))
-            else:
-                status_op = []
-            
-            if 'STATUS_LICENCA' in df_temp.columns:
-                status_lic = st.multiselect("✅ Status Licença", ['Válido', 'Expirado'])
-            else:
-                status_lic = []
-            
-            aplicar = st.form_submit_button("🔍 Aplicar Filtros", use_container_width=True)
-            
-            if aplicar:
+        projetos = st.multiselect("📍 Projetos", sorted(df_temp['PROJETO'].unique()), key="filtro_projetos")
+        operadoras = st.multiselect("📡 Operadoras", sorted(df_temp['OPERADORA'].unique()), key="filtro_operadoras")
+        
+        if 'STATUS NA OP.' in df_temp.columns:
+            status_op = st.multiselect("🔌 Status na OP", sorted(df_temp['STATUS NA OP.'].unique()), key="filtro_status_op")
+        else:
+            status_op = []
+        
+        if 'STATUS_LICENCA' in df_temp.columns:
+            status_lic = st.multiselect("✅ Status Licença", ['Válido', 'Expirado'], key="filtro_status_lic")
+        else:
+            status_lic = []
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔍 Aplicar", use_container_width=True, type="primary"):
                 st.session_state.filtros_ativos = {
                     'projetos': projetos,
                     'operadoras': operadoras,
@@ -1112,15 +1099,15 @@ with st.sidebar:
                     'status_licenca': status_lic
                 }
                 st.rerun()
+        
+        with col2:
+            if st.button("🔄 Limpar", use_container_width=True):
+                st.session_state.filtros_ativos = {}
+                st.rerun()
     
-    # Contador de filtros ativos
     total_filtros = sum(1 for v in st.session_state.filtros_ativos.values() if v)
     if total_filtros > 0:
         st.info(f"🎯 **{total_filtros} filtro(s) ativo(s)**")
-        
-        if st.button("🔄 Limpar Filtros", use_container_width=True):
-            st.session_state.filtros_ativos = {}
-            st.rerun()
     
     st.markdown("---")
     
@@ -1129,7 +1116,6 @@ with st.sidebar:
     if st.button("🔄 Recarregar Dados", key="reload", use_container_width=True):
         st.cache_data.clear()
         st.cache_resource.clear()
-        # Limpar cache do Parquet
         parquet_path = Path("MAPEAMENTO_DE_CHIPS.parquet")
         if parquet_path.exists():
             parquet_path.unlink()
@@ -1169,7 +1155,6 @@ if df.empty:
     st.error("❌ Erro ao carregar dados. Verifique se o arquivo 'MAPEAMENTO DE CHIPS.xlsx' existe.")
     st.stop()
 
-# Aplicar filtros
 df_filtrado = aplicar_filtros(df, st.session_state.filtros_ativos)
 
 st.success(f"✅ **{len(df_filtrado):,} licenças** carregadas | **{df_filtrado['PROJETO'].nunique()} projetos** | **{df_filtrado['OPERADORA'].nunique()} operadoras**".replace(',', '.'))
@@ -1183,7 +1168,6 @@ with tab1:
     
     metricas = calcular_metricas_rapido(df_filtrado)
     
-    # CARDS DE MÉTRICAS
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     
     cards = [
@@ -1207,15 +1191,12 @@ with tab1:
     
     st.markdown("<div class='mb-4'></div>", unsafe_allow_html=True)
     
-    # ALERTAS INTELIGENTES
     gerar_alertas_inteligentes(df_filtrado)
     
-    # GRÁFICOS
     st.markdown("### 📊 Análises Visuais")
     
     dados_graficos = agregar_dados_graficos(df_filtrado)
     
-    # LINHA 1
     col1, col2 = st.columns(2)
     
     with col1:
@@ -1236,7 +1217,6 @@ with tab1:
         st.plotly_chart(fig_conexao, use_container_width=True, config={'displayModeBar': False})
         st.markdown("</div>", unsafe_allow_html=True)
     
-    # LINHA 2
     col1, col2 = st.columns(2)
     
     with col1:
@@ -1257,7 +1237,6 @@ with tab1:
         st.plotly_chart(fig_proj, use_container_width=True, config={'displayModeBar': False})
         st.markdown("</div>", unsafe_allow_html=True)
     
-    # LINHA 3
     st.markdown("""
     <div class="chart-container">
         <div class="chart-title"><i class="fas fa-calendar-alt"></i> Timeline de Vencimentos (Próximos 12 Meses)</div>
@@ -1266,7 +1245,6 @@ with tab1:
     st.plotly_chart(fig_venc, use_container_width=True, config={'displayModeBar': False})
     st.markdown("</div>", unsafe_allow_html=True)
     
-    # BOTÕES DE EXPORTAÇÃO
     st.markdown("---")
     criar_botoes_exportacao(df_filtrado)
 
@@ -1277,19 +1255,15 @@ with tab2:
     groq_client = get_groq_client()
     
     if groq_client:
-        # Exibir histórico do chat
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
         
-        # Input do usuário
         if prompt := st.chat_input("Pergunte sobre os dados de licenças... 💭"):
-            # Adicionar mensagem do usuário
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
                 st.markdown(prompt)
             
-            # Gerar resposta com streaming
             with st.chat_message("assistant"):
                 message_placeholder = st.empty()
                 full_response = ""
@@ -1309,7 +1283,6 @@ with tab2:
             
             st.session_state.messages.append({"role": "assistant", "content": full_response})
         
-        # Sugestões de perguntas
         st.markdown("---")
         with st.expander("💡 Perguntas Sugeridas", expanded=True):
             col1, col2 = st.columns(2)
@@ -1332,7 +1305,6 @@ with tab2:
                         st.session_state.messages.append({"role": "user", "content": pergunta})
                         st.rerun()
         
-        # Botão para limpar conversa
         if st.button("🗑️ Limpar Conversa", type="secondary"):
             st.session_state.messages = []
             st.rerun()
@@ -1360,10 +1332,9 @@ with tab2:
 with tab3:
     st.markdown("### 📋 Visualização Detalhada de Dados")
     
-    # Configurações de exibição
     col1, col2, col3 = st.columns([2,2,1])
     with col1:
-        busca = st.text_input("🔍 Buscar ICCID ou Projeto", "")
+        busca = st.text_input("🔍 Buscar ICCID ou Projeto", "", key="busca_dados")
     with col2:
         colunas_disponiveis = df_filtrado.columns.tolist()
         colunas_padrao = ['PROJETO', 'ICCID', 'OPERADORA', 'STATUS NA OP.', 'DATA DE VENCIMENTO']
@@ -1372,28 +1343,28 @@ with tab3:
         colunas_visiveis = st.multiselect(
             "Colunas visíveis",
             options=colunas_disponiveis,
-            default=colunas_padrao
+            default=colunas_padrao,
+            key="colunas_visiveis"
         )
     with col3:
-        linhas_por_pagina = st.selectbox("Linhas/página", [10, 25, 50, 100], index=1)
+        linhas_por_pagina = st.selectbox("Linhas/página", [10, 25, 50, 100], index=1, key="linhas_pagina")
     
-    # Aplicar busca
     if busca:
-        mask = df_filtrado.astype(str).apply(lambda x: x.str.contains(busca, case=False, na=False)).any(axis=1)
+        mask = df_filtrado.apply(lambda row: row.astype(str).str.contains(busca, case=False, na=False).any(), axis=1)
         df_exibir = df_filtrado[mask]
     else:
         df_exibir = df_filtrado
     
-    # Paginação
     total_linhas = len(df_exibir)
-    total_paginas = (total_linhas // linhas_por_pagina) + (1 if total_linhas % linhas_por_pagina else 0)
+    total_paginas = max(1, (total_linhas // linhas_por_pagina) + (1 if total_linhas % linhas_por_pagina else 0))
     
     if total_paginas > 1:
         pagina_atual = st.number_input(
             f"Página (de {total_paginas})",
             min_value=1,
-            max_value=max(1, total_paginas),
-            value=1
+            max_value=total_paginas,
+            value=1,
+            key="pagina_atual"
         )
     else:
         pagina_atual = 1
@@ -1401,7 +1372,6 @@ with tab3:
     inicio = (pagina_atual - 1) * linhas_por_pagina
     fim = inicio + linhas_por_pagina
     
-    # Exibir tabela
     if colunas_visiveis:
         st.dataframe(
             df_exibir[colunas_visiveis].iloc[inicio:fim],
@@ -1413,7 +1383,6 @@ with tab3:
     else:
         st.warning("⚠️ Selecione pelo menos uma coluna para visualizar")
     
-    # Botões de exportação da tabela filtrada
     st.markdown("---")
     criar_botoes_exportacao(df_exibir)
 
