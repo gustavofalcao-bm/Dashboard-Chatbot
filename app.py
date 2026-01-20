@@ -7,6 +7,8 @@ import warnings
 import base64
 import io
 import hashlib
+import os
+from groq import Groq
 
 warnings.filterwarnings('ignore')
 
@@ -16,6 +18,19 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# ==================== CONFIGURAÇÃO GROQ ====================
+
+def get_groq_client():
+    """Inicializa cliente Groq com API key"""
+    api_key = st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY"))
+    if not api_key:
+        return None
+    try:
+        return Groq(api_key=api_key)
+    except Exception as e:
+        st.error(f"Erro ao conectar com Groq: {e}")
+        return None
 
 # ==================== IMAGENS ====================
 
@@ -57,10 +72,9 @@ COLORS = {
     'algar': '#00C853'
 }
 
-# ==================== CSS PREMIUM 4.0 ====================
+# ==================== CSS PREMIUM 4.1 ====================
 st.markdown(f"""
 <style>
-    /* FONTS & RESET */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
     @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
     
@@ -71,12 +85,10 @@ st.markdown(f"""
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }}
     
-    /* BACKGROUND */
     .stApp {{
         background: linear-gradient(135deg, #F8F9FA 0%, #E8EEF2 100%);
     }}
     
-    /* SIDEBAR PREMIUM */
     [data-testid="stSidebar"] {{
         background: linear-gradient(180deg, {COLORS['secondary']} 0%, {COLORS['accent']} 60%, {COLORS['dark_green']} 100%) !important;
         box-shadow: 4px 0 30px rgba(0,0,0,0.12);
@@ -109,11 +121,6 @@ st.markdown(f"""
         border-color: white !important;
     }}
     
-    [data-testid="stSidebar"] .stButton>button:active {{
-        transform: translateY(0) scale(0.98);
-    }}
-    
-    /* HEADER PREMIUM */
     .header-container {{
         background: linear-gradient(135deg, rgba(44, 62, 80, 0.97), rgba(52, 73, 94, 0.97));
         padding: 2rem 3rem;
@@ -168,7 +175,6 @@ st.markdown(f"""
         z-index: 1;
     }}
     
-    /* METRIC CARDS PREMIUM */
     @keyframes fadeInUp {{
         from {{
             opacity: 0;
@@ -253,26 +259,6 @@ st.markdown(f"""
         z-index: 1;
     }}
     
-    .metric-change {{
-        font-size: 0.85rem;
-        margin-top: 0.5rem;
-        padding: 0.3rem 0.8rem;
-        border-radius: 20px;
-        display: inline-block;
-        font-weight: 600;
-    }}
-    
-    .metric-change.positive {{
-        background: rgba(76, 175, 80, 0.1);
-        color: {COLORS['accent']};
-    }}
-    
-    .metric-change.negative {{
-        background: rgba(229, 115, 115, 0.1);
-        color: {COLORS['danger']};
-    }}
-    
-    /* CHART CONTAINERS */
     .chart-container {{
         background: white;
         padding: 2rem;
@@ -305,7 +291,6 @@ st.markdown(f"""
         font-size: 1.6rem;
     }}
     
-    /* TABS PREMIUM */
     .stTabs [data-baseweb="tab-list"] {{
         gap: 12px;
         background: white;
@@ -339,25 +324,11 @@ st.markdown(f"""
         box-shadow: 0 4px 15px rgba(139, 195, 74, 0.3);
     }}
     
-    /* LOADING STATE */
     @keyframes pulse {{
         0%, 100% {{ opacity: 1; }}
         50% {{ opacity: 0.5; }}
     }}
     
-    .skeleton {{
-        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-        background-size: 200% 100%;
-        animation: loading 1.5s infinite;
-        border-radius: 12px;
-    }}
-    
-    @keyframes loading {{
-        0% {{ background-position: 200% 0; }}
-        100% {{ background-position: -200% 0; }}
-    }}
-    
-    /* SCROLLBAR */
     ::-webkit-scrollbar {{
         width: 12px;
         height: 12px;
@@ -378,14 +349,37 @@ st.markdown(f"""
         background: linear-gradient(180deg, {COLORS['accent']}, {COLORS['dark_green']});
     }}
     
-    /* UTILITIES */
+    /* Chat Styles */
+    .chat-message {{
+        padding: 1.5rem;
+        border-radius: 16px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        animation: fadeInUp 0.4s ease-out;
+    }}
+    
+    .chat-message.user {{
+        background: linear-gradient(135deg, {COLORS['secondary']}, {COLORS['accent']});
+        color: white;
+        margin-left: 2rem;
+    }}
+    
+    .chat-message.assistant {{
+        background: white;
+        border: 2px solid {COLORS['light']};
+        margin-right: 2rem;
+    }}
+    
+    .chat-message.assistant h4 {{
+        color: {COLORS['primary']};
+        font-size: 1.1rem;
+        margin-bottom: 0.8rem;
+    }}
+    
     .text-center {{ text-align: center; }}
-    .mb-1 {{ margin-bottom: 0.5rem; }}
     .mb-2 {{ margin-bottom: 1rem; }}
     .mb-3 {{ margin-bottom: 1.5rem; }}
     .mb-4 {{ margin-bottom: 2rem; }}
-    .mt-2 {{ margin-top: 1rem; }}
-    .mt-3 {{ margin-top: 1.5rem; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -409,16 +403,29 @@ def normalizar_operadora(operadora):
     mapeamento = {'CLAROTIM': 'CLARO', 'VIVOTIM': 'VIVO', 'TIMCLARO': 'TIM'}
     return mapeamento.get(op, op)
 
-# ==================== CARREGAMENTO ====================
+def format_number(num):
+    try:
+        return f"{int(num):,}".replace(',', '.')
+    except:
+        return str(num)
+
+# ==================== CARREGAMENTO DE DADOS ====================
 
 @st.cache_data(ttl=7200, show_spinner=False)
-def load_excel_optimized(versao=4):
-    """VERSÃO 4.0 PREMIUM"""
+def load_excel_optimized(versao=5):
+    """VERSÃO 5.0 COM PARQUET CACHE"""
     try:
+        parquet_path = Path("MAPEAMENTO_DE_CHIPS.parquet")
         excel_path = Path("MAPEAMENTO DE CHIPS.xlsx")
+        
         if not excel_path.exists():
             return pd.DataFrame()
         
+        # Usar Parquet se existir e for mais recente
+        if parquet_path.exists() and parquet_path.stat().st_mtime > excel_path.stat().st_mtime:
+            return pd.read_parquet(parquet_path)
+        
+        # Carregar Excel
         cols_needed = [
             'PROJETO', 'ICCID', 'OPERADORA', 
             'DATA DE ENTREGA', 'DATA DE ATIVAÇÃO', 'DATA DE VENCIMENTO',
@@ -444,20 +451,24 @@ def load_excel_optimized(versao=4):
         
         df_completo = pd.concat(dfs, ignore_index=True)
         
+        # Normalização
         if 'OPERADORA' in df_completo.columns:
             df_completo['OPERADORA'] = df_completo['OPERADORA'].apply(normalizar_operadora)
         
+        # Datas
         date_cols = ['DATA DE ENTREGA', 'DATA DE ATIVAÇÃO', 'DATA DE VENCIMENTO', 'ÚLTIMA CONEXÃO']
         for col in date_cols:
             if col in df_completo.columns:
                 df_completo[col] = pd.to_datetime(df_completo[col], errors='coerce', format='mixed')
         
+        # Status da licença
         hoje = pd.Timestamp.now().normalize()
         if 'DATA DE VENCIMENTO' in df_completo.columns:
             df_completo['STATUS_LICENCA'] = df_completo['DATA DE VENCIMENTO'].apply(
                 lambda x: 'Expirado' if pd.notna(x) and x < hoje else 'Válido'
             )
         
+        # Categoria de conexão
         if 'ÚLTIMA CONEXÃO' in df_completo.columns:
             def categorizar_conexao(data_conexao):
                 if pd.isna(data_conexao):
@@ -477,6 +488,9 @@ def load_excel_optimized(versao=4):
         if 'STATUS NA OP.' in df_completo.columns:
             df_completo['STATUS NA OP.'] = df_completo['STATUS NA OP.'].astype(str).str.strip().str.title()
         
+        # Salvar Parquet para próximas cargas
+        df_completo.to_parquet(parquet_path, compression='snappy')
+        
         return df_completo
     
     except Exception as e:
@@ -485,44 +499,42 @@ def load_excel_optimized(versao=4):
         st.code(traceback.format_exc())
         return pd.DataFrame()
 
-@st.cache_data(ttl=7200, show_spinner=False)
-def calcular_metricas_rapido(total_rows, df_hash):
-    df = st.session_state.df_loaded
+@st.cache_data(ttl=3600)
+def aplicar_filtros(df, filtros_dict):
+    """Aplica filtros com cache"""
+    df_filtrado = df.copy()
     
+    if filtros_dict.get('projetos'):
+        df_filtrado = df_filtrado[df_filtrado['PROJETO'].isin(filtros_dict['projetos'])]
+    if filtros_dict.get('operadoras'):
+        df_filtrado = df_filtrado[df_filtrado['OPERADORA'].isin(filtros_dict['operadoras'])]
+    if filtros_dict.get('status_op'):
+        df_filtrado = df_filtrado[df_filtrado['STATUS NA OP.'].isin(filtros_dict['status_op'])]
+    if filtros_dict.get('status_licenca'):
+        df_filtrado = df_filtrado[df_filtrado['STATUS_LICENCA'].isin(filtros_dict['status_licenca'])]
+    
+    return df_filtrado
+
+@st.cache_data(ttl=3600)
+def calcular_metricas_rapido(df_filtrado):
     hoje = pd.Timestamp.now().normalize()
-    df_com_venc = df[df['DATA DE VENCIMENTO'].notna()]
+    df_com_venc = df_filtrado[df_filtrado['DATA DE VENCIMENTO'].notna()]
     
     validas = (df_com_venc['DATA DE VENCIMENTO'] > hoje).sum()
     expiradas = (df_com_venc['DATA DE VENCIMENTO'] <= hoje).sum()
     
     return {
-        'total': total_rows,
-        'vinculadas': total_rows,
+        'total': len(df_filtrado),
+        'vinculadas': len(df_filtrado),
         'perc_vinculadas': 100.0,
         'saldo': 0,
         'validas': int(validas),
         'expiradas': int(expiradas)
     }
 
-@st.cache_data(ttl=7200, show_spinner=False)
-def agregar_dados_graficos(df_hash, filtros_hash, versao=4):
-    """VERSÃO 4.0 PREMIUM com filtros"""
-    df = st.session_state.df_loaded
-    
-    filtros = st.session_state.get('filtros_ativos', {})
-    df_filtrado = df.copy()
-    
-    if filtros.get('projetos'):
-        df_filtrado = df_filtrado[df_filtrado['PROJETO'].isin(filtros['projetos'])]
-    
-    if filtros.get('operadoras'):
-        df_filtrado = df_filtrado[df_filtrado['OPERADORA'].isin(filtros['operadoras'])]
-    
-    if filtros.get('status_op'):
-        df_filtrado = df_filtrado[df_filtrado['STATUS NA OP.'].isin(filtros['status_op'])]
-    
-    if filtros.get('status_licenca'):
-        df_filtrado = df_filtrado[df_filtrado['STATUS_LICENCA'].isin(filtros['status_licenca'])]
+@st.cache_data(ttl=3600)
+def agregar_dados_graficos(df_filtrado):
+    """Agrega dados para gráficos"""
     
     df_op = df_filtrado['OPERADORA'].value_counts().reset_index()
     df_op.columns = ['Operadora', 'Qtd']
@@ -533,16 +545,6 @@ def agregar_dados_graficos(df_hash, filtros_hash, versao=4):
     hoje = pd.Timestamp.now().normalize()
     df_venc = df_filtrado[df_filtrado['DATA DE VENCIMENTO'].notna()].copy()
     df_venc_validos = df_venc[df_venc['DATA DE VENCIMENTO'] > hoje]
-    
-    if not df_venc_validos.empty:
-        df_venc_validos['dias'] = (df_venc_validos['DATA DE VENCIMENTO'] - hoje).dt.days
-        bins = [0, 30, 90, 180, 365, float('inf')]
-        labels = ['0-30 dias', '31-90 dias', '91-180 dias', '181-365 dias', '+1 ano']
-        df_venc_validos['categoria'] = pd.cut(df_venc_validos['dias'], bins=bins, labels=labels, right=False)
-        venc_cat = df_venc_validos['categoria'].value_counts().reindex(labels, fill_value=0)
-    else:
-        labels = ['0-30 dias', '31-90 dias', '91-180 dias', '181-365 dias', '+1 ano']
-        venc_cat = pd.Series([0]*5, index=labels)
     
     if not df_venc_validos.empty:
         prox_ano = hoje + pd.DateOffset(months=12)
@@ -565,33 +567,13 @@ def agregar_dados_graficos(df_hash, filtros_hash, versao=4):
     else:
         df_status_op = pd.DataFrame(columns=['Status', 'Qtd'])
     
-    if 'DATA DE ATIVAÇÃO' in df_filtrado.columns:
-        df_ativ = df_filtrado[df_filtrado['DATA DE ATIVAÇÃO'].notna()].copy()
-        if not df_ativ.empty:
-            df_ativ['mes_ativ'] = df_ativ['DATA DE ATIVAÇÃO'].dt.to_period('M')
-            cresc_mensal = df_ativ.groupby('mes_ativ').size().reset_index(name='Ativações')
-            cresc_mensal['mes_ativ'] = cresc_mensal['mes_ativ'].dt.to_timestamp()
-            cresc_mensal = cresc_mensal.sort_values('mes_ativ').tail(12)
-        else:
-            cresc_mensal = pd.DataFrame(columns=['mes_ativ', 'Ativações'])
-    else:
-        cresc_mensal = pd.DataFrame(columns=['mes_ativ', 'Ativações'])
-    
     return {
         'operadoras': df_op,
         'projetos': df_proj,
-        'venc_categorias': venc_cat,
         'venc_mensal': venc_mensal,
         'conexoes': df_conexao,
-        'status_op': df_status_op,
-        'crescimento': cresc_mensal
+        'status_op': df_status_op
     }
-
-def format_number(num):
-    try:
-        return f"{int(num):,}".replace(',', '.')
-    except:
-        return str(num)
 
 # ==================== GRÁFICOS PREMIUM ====================
 
@@ -760,8 +742,7 @@ def criar_grafico_status_op_premium(dados):
         orientation='h',
         marker=dict(
             color=colors_list,
-            line=dict(color='white', width=3),
-            pattern_shape=""
+            line=dict(color='white', width=3)
         ),
         text=[f"<b>{q:,.0f}</b>".replace(',', '.') for q in df['Qtd']],
         textposition='outside',
@@ -920,6 +901,182 @@ def criar_grafico_projetos_premium(dados):
     
     return fig
 
+# ==================== ALERTAS INTELIGENTES ====================
+
+def gerar_alertas_inteligentes(df):
+    """Identifica e exibe alertas importantes"""
+    alertas = []
+    hoje = pd.Timestamp.now().normalize()
+    
+    # Licenças expirando em 30 dias
+    venc_30 = df[
+        (df['DATA DE VENCIMENTO'] > hoje) &
+        (df['DATA DE VENCIMENTO'] <= hoje + pd.Timedelta(days=30))
+    ]
+    if len(venc_30) > 0:
+        alertas.append(("warning", f"⚠️ **{len(venc_30)} licenças** vencem nos próximos 30 dias"))
+    
+    # Chips sem conexão há mais de 180 dias
+    if 'CATEGORIA_CONEXAO' in df.columns:
+        sem_conexao_180 = df[df['CATEGORIA_CONEXAO'] == 'Mais de 180 dias']
+        if len(sem_conexao_180) > 0:
+            alertas.append(("error", f"🔴 **{len(sem_conexao_180)} chips** sem conexão há mais de 180 dias"))
+    
+    # Licenças já expiradas
+    if 'STATUS_LICENCA' in df.columns:
+        expiradas = df[df['STATUS_LICENCA'] == 'Expirado']
+        if len(expiradas) > 0:
+            alertas.append(("error", f"❌ **{len(expiradas)} licenças** já expiradas - renovação necessária"))
+    
+    # Taxa de chips nunca conectados
+    if 'CATEGORIA_CONEXAO' in df.columns:
+        nunca_conectou = df[df['CATEGORIA_CONEXAO'] == 'Nunca Conectou']
+        taxa = len(nunca_conectou) / len(df) * 100 if len(df) > 0 else 0
+        if taxa > 15:
+            alertas.append(("info", f"📊 **{taxa:.1f}%** dos chips nunca conectaram - investigar"))
+    
+    # Exibir alertas
+    if alertas:
+        st.markdown("### 🚨 Alertas e Recomendações")
+        for tipo, mensagem in alertas:
+            if tipo == "warning":
+                st.warning(mensagem)
+            elif tipo == "error":
+                st.error(mensagem)
+            else:
+                st.info(mensagem)
+        st.markdown("---")
+
+# ==================== EXPORTAÇÃO DE DADOS ====================
+
+def criar_botoes_exportacao(df_filtrado):
+    """Permite download dos dados filtrados"""
+    st.markdown("### 📥 Exportar Dados")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        # Excel
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            df_filtrado.to_excel(writer, sheet_name='Dados Filtrados', index=False)
+            
+            # Sheet de resumo
+            resumo = df_filtrado.groupby('OPERADORA').size().reset_index(name='Qtd')
+            resumo.to_excel(writer, sheet_name='Resumo por Operadora', index=False)
+            
+        st.download_button(
+            label="📥 Baixar Excel",
+            data=buffer,
+            file_name=f'licencas_basemobile_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx',
+            mime='application/vnd.ms-excel',
+            use_container_width=True
+        )
+    
+    with col2:
+        # CSV
+        csv = df_filtrado.to_csv(index=False, encoding='utf-8-sig')
+        st.download_button(
+            label="📥 Baixar CSV",
+            data=csv,
+            file_name=f'licencas_basemobile_{datetime.now().strftime("%Y%m%d_%H%M")}.csv',
+            mime='text/csv',
+            use_container_width=True
+        )
+    
+    with col3:
+        # JSON
+        json_data = df_filtrado.to_json(orient='records', date_format='iso', force_ascii=False)
+        st.download_button(
+            label="📥 Baixar JSON",
+            data=json_data,
+            file_name=f'licencas_basemobile_{datetime.now().strftime("%Y%m%d_%H%M")}.json',
+            mime='application/json',
+            use_container_width=True
+        )
+
+# ==================== ASSISTENTE IA COM GROQ ====================
+
+def criar_prompt_sistema(df_filtrado):
+    """Cria prompt do sistema com contexto dos dados"""
+    hoje = pd.Timestamp.now().strftime("%d/%m/%Y")
+    
+    resumo_operadoras = df_filtrado['OPERADORA'].value_counts().to_dict()
+    top5_projetos = df_filtrado['PROJETO'].value_counts().head(5).to_dict()
+    
+    validas = (df_filtrado['STATUS_LICENCA'] == 'Válido').sum() if 'STATUS_LICENCA' in df_filtrado.columns else 0
+    expiradas = (df_filtrado['STATUS_LICENCA'] == 'Expirado').sum() if 'STATUS_LICENCA' in df_filtrado.columns else 0
+    
+    prompt_sistema = f"""Você é o Assistente IA da Base Mobile, especializado em análise de dados de gestão de licenças de chips M2M/IoT.
+
+🎯 DIRETRIZES FUNDAMENTAIS:
+- Você é um especialista em telecomunicações e análise de dados
+- Sempre responda em português brasileiro
+- Use formatação Markdown para clareza
+- Seja objetivo, técnico e profissional
+- Forneça insights acionáveis com base nos dados
+- Use emojis relevantes para melhor visualização
+- Cite sempre números e percentuais quando relevante
+
+📊 CONTEXTO DOS DADOS ATUAIS (atualizado em {hoje}):
+
+**Resumo Geral:**
+- Total de licenças: {len(df_filtrado):,}
+- Projetos ativos: {df_filtrado['PROJETO'].nunique()}
+- Licenças válidas: {validas:,}
+- Licenças expiradas: {expiradas:,}
+
+**Distribuição por Operadora:**
+{chr(10).join([f'- {op}: {qtd:,} licenças' for op, qtd in resumo_operadoras.items()])}
+
+**Top 5 Projetos:**
+{chr(10).join([f'- {proj}: {qtd:,} licenças' for proj, qtd in top5_projetos.items()])}
+
+🚫 GUARDRAILS (O QUE NÃO FAZER):
+- NÃO invente dados ou números que não foram fornecidos
+- NÃO responda sobre temas não relacionados a gestão de licenças/chips
+- NÃO faça recomendações financeiras sem base nos dados
+- NÃO compartilhe informações confidenciais de clientes
+
+✅ VOCÊ PODE AJUDAR COM:
+- Análises e insights sobre os dados de licenças
+- Identificação de padrões e anomalias
+- Recomendações operacionais baseadas em dados
+- Explicações sobre métricas e indicadores
+- Sugestões de otimização de recursos
+- Interpretação de tendências temporais
+
+Se a pergunta fugir do escopo, responda educadamente:
+"Sou especializado em análise de dados de licenças da Base Mobile. Posso ajudar com análises, métricas, tendências e insights sobre gestão de chips. Como posso auxiliar com os dados de licenças?"
+"""
+    return prompt_sistema
+
+def processar_mensagem_groq(client, mensagens, df_filtrado):
+    """Processa mensagem com Groq e retorna resposta"""
+    try:
+        # Criar prompt do sistema
+        prompt_sistema = criar_prompt_sistema(df_filtrado)
+        
+        # Preparar mensagens com contexto
+        mensagens_completas = [
+            {"role": "system", "content": prompt_sistema}
+        ] + mensagens
+        
+        # Chamar Groq API com streaming
+        stream = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",  # Modelo mais avançado gratuito
+            messages=mensagens_completas,
+            temperature=0.7,
+            max_tokens=2048,
+            top_p=0.9,
+            stream=True
+        )
+        
+        return stream
+    
+    except Exception as e:
+        st.error(f"Erro ao processar mensagem: {e}")
+        return None
+
 # ==================== SESSION STATE ====================
 
 if 'messages' not in st.session_state:
@@ -939,33 +1096,44 @@ with st.sidebar:
         """, unsafe_allow_html=True)
     
     st.markdown("### 📊 Gestão de Licenças")
-    st.caption("Base Mobile 2026 • v4.0 Premium")
+    st.caption("Base Mobile 2026 • v5.0 AI Edition")
     st.markdown("---")
     
-    # FILTROS
-    st.markdown("### 🎯 Filtros Dinâmicos")
+    # FILTROS EM FORM
+    with st.form("form_filtros"):
+        st.markdown("### 🎯 Filtros Dinâmicos")
+        
+        if st.session_state.df_loaded is not None and not st.session_state.df_loaded.empty:
+            df_temp = st.session_state.df_loaded
+            
+            projetos = st.multiselect("📍 Projetos", sorted(df_temp['PROJETO'].unique()))
+            operadoras = st.multiselect("📡 Operadoras", sorted(df_temp['OPERADORA'].unique()))
+            
+            if 'STATUS NA OP.' in df_temp.columns:
+                status_op = st.multiselect("🔌 Status na OP", sorted(df_temp['STATUS NA OP.'].unique()))
+            else:
+                status_op = []
+            
+            if 'STATUS_LICENCA' in df_temp.columns:
+                status_lic = st.multiselect("✅ Status Licença", ['Válido', 'Expirado'])
+            else:
+                status_lic = []
+            
+            aplicar = st.form_submit_button("🔍 Aplicar Filtros", use_container_width=True)
+            
+            if aplicar:
+                st.session_state.filtros_ativos = {
+                    'projetos': projetos,
+                    'operadoras': operadoras,
+                    'status_op': status_op,
+                    'status_licenca': status_lic
+                }
+                st.rerun()
     
-    if st.session_state.df_loaded is not None and not st.session_state.df_loaded.empty:
-        df_temp = st.session_state.df_loaded
-        
-        projetos = st.multiselect("📍 Projetos", sorted(df_temp['PROJETO'].unique()), default=None)
-        st.session_state.filtros_ativos['projetos'] = projetos
-        
-        operadoras = st.multiselect("📡 Operadoras", sorted(df_temp['OPERADORA'].unique()), default=None)
-        st.session_state.filtros_ativos['operadoras'] = operadoras
-        
-        if 'STATUS NA OP.' in df_temp.columns:
-            status_op = st.multiselect("🔌 Status na OP", sorted(df_temp['STATUS NA OP.'].unique()), default=None)
-            st.session_state.filtros_ativos['status_op'] = status_op
-        
-        if 'STATUS_LICENCA' in df_temp.columns:
-            status_lic = st.multiselect("✅ Status Licença", ['Válido', 'Expirado'], default=None)
-            st.session_state.filtros_ativos['status_licenca'] = status_lic
-        
-        # Contador de filtros ativos
-        total_filtros = sum(1 for v in st.session_state.filtros_ativos.values() if v)
-        if total_filtros > 0:
-            st.info(f"🎯 **{total_filtros} filtro(s) ativo(s)**")
+    # Contador de filtros ativos
+    total_filtros = sum(1 for v in st.session_state.filtros_ativos.values() if v)
+    if total_filtros > 0:
+        st.info(f"🎯 **{total_filtros} filtro(s) ativo(s)**")
         
         if st.button("🔄 Limpar Filtros", use_container_width=True):
             st.session_state.filtros_ativos = {}
@@ -978,8 +1146,15 @@ with st.sidebar:
     if st.button("🔄 Recarregar Dados", key="reload", use_container_width=True):
         st.cache_data.clear()
         st.cache_resource.clear()
+        # Limpar cache do Parquet
+        parquet_path = Path("MAPEAMENTO_DE_CHIPS.parquet")
+        if parquet_path.exists():
+            parquet_path.unlink()
         st.session_state.clear()
         st.rerun()
+    
+    st.markdown("---")
+    st.caption("💡 **Dica:** Use o Assistente IA para análises avançadas")
 
 # ==================== HEADER ====================
 st.markdown(f"""
@@ -990,7 +1165,7 @@ st.markdown(f"""
         </div>
         <div>
             <h1 class="header-title">Dashboard Gerencial de Licenças</h1>
-            <p class="header-subtitle">Sistema Enterprise 4.0 Premium | Analytics & Intelligence</p>
+            <p class="header-subtitle">Sistema Enterprise 5.0 AI Edition | Analytics & Intelligence</p>
         </div>
     </div>
 </div>
@@ -1002,7 +1177,7 @@ if st.session_state.df_loaded is None:
     with loading_placeholder.container():
         show_loading("Processando base de dados")
     
-    st.session_state.df_loaded = load_excel_optimized(versao=4)
+    st.session_state.df_loaded = load_excel_optimized(versao=5)
     loading_placeholder.empty()
 
 df = st.session_state.df_loaded
@@ -1011,18 +1186,19 @@ if df.empty:
     st.error("❌ Erro ao carregar dados")
     st.stop()
 
-st.success(f"✅ **{len(df):,} licenças** carregadas | **{df['PROJETO'].nunique()} projetos** | **{df['OPERADORA'].nunique()} operadoras**".replace(',', '.'))
+# Aplicar filtros
+df_filtrado = aplicar_filtros(df, st.session_state.filtros_ativos)
+
+st.success(f"✅ **{len(df_filtrado):,} licenças** carregadas | **{df_filtrado['PROJETO'].nunique()} projetos** | **{df_filtrado['OPERADORA'].nunique()} operadoras**".replace(',', '.'))
 st.markdown("---")
 
 # ==================== TABS ====================
-tab1, tab2 = st.tabs(["📊 Dashboard Executivo", "💬 Assistente IA"])
+tab1, tab2, tab3 = st.tabs(["📊 Dashboard Executivo", "💬 Assistente IA", "📋 Dados Detalhados"])
 
 with tab1:
     st.markdown("### 🎯 Indicadores Estratégicos")
     
-    df_hash = hashlib.md5(str(len(df)).encode()).hexdigest()
-    filtros_hash = hashlib.md5(str(st.session_state.filtros_ativos).encode()).hexdigest()
-    metricas = calcular_metricas_rapido(len(df), df_hash)
+    metricas = calcular_metricas_rapido(df_filtrado)
     
     # CARDS DE MÉTRICAS
     col1, col2, col3, col4, col5, col6 = st.columns(6)
@@ -1048,10 +1224,13 @@ with tab1:
     
     st.markdown("<div class='mb-4'></div>", unsafe_allow_html=True)
     
+    # ALERTAS INTELIGENTES
+    gerar_alertas_inteligentes(df_filtrado)
+    
     # GRÁFICOS
     st.markdown("### 📊 Análises Visuais")
     
-    dados_graficos = agregar_dados_graficos(df_hash, filtros_hash, versao=4)
+    dados_graficos = agregar_dados_graficos(df_filtrado)
     
     # LINHA 1
     col1, col2 = st.columns(2)
@@ -1103,9 +1282,158 @@ with tab1:
     fig_venc = criar_grafico_vencimentos_premium(dados_graficos)
     st.plotly_chart(fig_venc, use_container_width=True, config={'displayModeBar': False})
     st.markdown("</div>", unsafe_allow_html=True)
+    
+    # BOTÕES DE EXPORTAÇÃO
+    st.markdown("---")
+    criar_botoes_exportacao(df_filtrado)
 
 with tab2:
-    st.info("💬 **Assistente IA** - Em desenvolvimento para v4.1")
+    st.markdown("### 💬 Assistente IA de Análise de Dados")
+    st.caption("Powered by Groq AI • Llama 3.3 70B")
+    
+    groq_client = get_groq_client()
+    
+    if groq_client:
+        # Exibir histórico do chat
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+        
+        # Input do usuário
+        if prompt := st.chat_input("Pergunte sobre os dados de licenças... 💭"):
+            # Adicionar mensagem do usuário
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            
+            # Gerar resposta com streaming
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                full_response = ""
+                
+                stream = processar_mensagem_groq(groq_client, st.session_state.messages, df_filtrado)
+                
+                if stream:
+                    for chunk in stream:
+                        if chunk.choices[0].delta.content:
+                            full_response += chunk.choices[0].delta.content
+                            message_placeholder.markdown(full_response + "▌")
+                    
+                    message_placeholder.markdown(full_response)
+                else:
+                    full_response = "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente."
+                    message_placeholder.markdown(full_response)
+            
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+        
+        # Sugestões de perguntas
+        st.markdown("---")
+        with st.expander("💡 Perguntas Sugeridas", expanded=True):
+            col1, col2 = st.columns(2)
+            
+            perguntas_exemplo = [
+                "📊 Qual operadora tem mais licenças ativas?",
+                "⏰ Quantas licenças vencem nos próximos 30 dias?",
+                "🔴 Quais projetos têm mais chips sem conexão?",
+                "📈 Qual a taxa de ativação por operadora?",
+                "🚨 Identifique possíveis problemas ou alertas",
+                "💡 Sugira otimizações para reduzir custos",
+                "📉 Analise a tendência de vencimentos",
+                "🎯 Quais projetos precisam de atenção imediata?"
+            ]
+            
+            for i, pergunta in enumerate(perguntas_exemplo):
+                col = col1 if i % 2 == 0 else col2
+                with col:
+                    if st.button(pergunta, key=f"sugestao_{i}", use_container_width=True):
+                        # Simular envio da pergunta
+                        st.session_state.messages.append({"role": "user", "content": pergunta})
+                        st.rerun()
+        
+        # Botão para limpar conversa
+        if st.button("🗑️ Limpar Conversa", type="secondary"):
+            st.session_state.messages = []
+            st.rerun()
+    
+    else:
+        st.warning("⚠️ **Assistente IA Desabilitado**")
+        st.info("""
+        Para ativar o Assistente IA, configure sua chave API do Groq:
+        
+        1. Crie uma conta gratuita em [console.groq.com](https://console.groq.com)
+        2. Gere uma API Key
+        3. Adicione a chave no arquivo `.streamlit/secrets.toml`:
+        
+        ```toml
+        GROQ_API_KEY = "sua-chave-aqui"
+        ```
+        
+        Ou defina como variável de ambiente:
+        
+        ```bash
+        export GROQ_API_KEY="sua-chave-aqui"
+        ```
+        """)
+
+with tab3:
+    st.markdown("### 📋 Visualização Detalhada de Dados")
+    
+    # Configurações de exibição
+    col1, col2, col3 = st.columns([2,2,1])
+    with col1:
+        busca = st.text_input("🔍 Buscar ICCID ou Projeto", "")
+    with col2:
+        colunas_disponiveis = df_filtrado.columns.tolist()
+        colunas_padrao = ['PROJETO', 'ICCID', 'OPERADORA', 'STATUS NA OP.', 'DATA DE VENCIMENTO']
+        colunas_padrao = [c for c in colunas_padrao if c in colunas_disponiveis]
+        
+        colunas_visiveis = st.multiselect(
+            "Colunas visíveis",
+            options=colunas_disponiveis,
+            default=colunas_padrao
+        )
+    with col3:
+        linhas_por_pagina = st.selectbox("Linhas/página", [10, 25, 50, 100], index=1)
+    
+    # Aplicar busca
+    if busca:
+        mask = df_filtrado.astype(str).apply(lambda x: x.str.contains(busca, case=False, na=False)).any(axis=1)
+        df_exibir = df_filtrado[mask]
+    else:
+        df_exibir = df_filtrado
+    
+    # Paginação
+    total_linhas = len(df_exibir)
+    total_paginas = (total_linhas // linhas_por_pagina) + (1 if total_linhas % linhas_por_pagina else 0)
+    
+    if total_paginas > 1:
+        pagina_atual = st.number_input(
+            f"Página (de {total_paginas})",
+            min_value=1,
+            max_value=max(1, total_paginas),
+            value=1
+        )
+    else:
+        pagina_atual = 1
+    
+    inicio = (pagina_atual - 1) * linhas_por_pagina
+    fim = inicio + linhas_por_pagina
+    
+    # Exibir tabela
+    if colunas_visiveis:
+        st.dataframe(
+            df_exibir[colunas_visiveis].iloc[inicio:fim],
+            use_container_width=True,
+            height=450
+        )
+        
+        st.caption(f"Exibindo {inicio+1}-{min(fim, total_linhas)} de {total_linhas} registros")
+    else:
+        st.warning("⚠️ Selecione pelo menos uma coluna para visualizar")
+    
+    # Botões de exportação da tabela filtrada
+    st.markdown("---")
+    criar_botoes_exportacao(df_exibir)
 
 st.markdown("---")
-st.caption("© 2026 Base Mobile | Dashboard Enterprise v4.0 Premium | Powered by Streamlit & Plotly")
+st.caption("© 2026 Base Mobile | Dashboard Enterprise v5.0 AI Edition | Powered by Streamlit, Plotly & Groq AI")
