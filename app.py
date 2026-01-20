@@ -6,7 +6,6 @@ from pathlib import Path
 import warnings
 import base64
 import io
-import hashlib
 import os
 from groq import Groq
 
@@ -20,7 +19,6 @@ st.set_page_config(
 )
 
 # ==================== CONFIGURAÇÃO GROQ ====================
-
 def get_groq_client():
     """Inicializa cliente Groq com API key"""
     api_key = st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY"))
@@ -33,7 +31,6 @@ def get_groq_client():
         return None
 
 # ==================== IMAGENS ====================
-
 def get_base64_image(image_path):
     try:
         with open(image_path, "rb") as f:
@@ -72,7 +69,7 @@ COLORS = {
     'algar': '#00C853'
 }
 
-# ==================== CSS PREMIUM 5.1 CORRIGIDO ====================
+# ==================== CSS PREMIUM CORRIGIDO ====================
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -89,14 +86,31 @@ st.markdown(f"""
         background: linear-gradient(135deg, #F8F9FA 0%, #E8EEF2 100%);
     }}
     
+    /* SIDEBAR - CORRIGIDO */
     [data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, {COLORS['secondary']} 0%, {COLORS['accent']} 60%, {COLORS['dark_green']} 100%) !important;
+        background: linear-gradient(180deg, {COLORS['secondary']} 0%, {COLORS['accent']} 100%);
         box-shadow: 4px 0 30px rgba(0,0,0,0.12);
         border-right: 1px solid rgba(255,255,255,0.1);
     }}
     
-    [data-testid="stSidebar"] * {{
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] .st-emotion-cache-10trblm,
+    [data-testid="stSidebar"] .element-container {{
         color: white !important;
+    }}
+    
+    /* FILTROS DA SIDEBAR - TEXTO ESCURO NO INPUT */
+    [data-testid="stSidebar"] .stMultiSelect label,
+    [data-testid="stSidebar"] .stSelectbox label {{
+        color: white !important;
+        font-weight: 600 !important;
+    }}
+    
+    [data-testid="stSidebar"] .stMultiSelect [data-baseweb="select"] span,
+    [data-testid="stSidebar"] .stSelectbox [data-baseweb="select"] span,
+    [data-testid="stSidebar"] input {{
+        color: {COLORS['primary']} !important;
+        background: white !important;
     }}
     
     [data-testid="stSidebar"] .stButton>button {{
@@ -259,38 +273,6 @@ st.markdown(f"""
         z-index: 1;
     }}
     
-    .chart-container {{
-        background: white;
-        padding: 2rem;
-        border-radius: 20px;
-        box-shadow: 0 6px 30px rgba(0,0,0,0.08);
-        border: 1px solid rgba(0,0,0,0.03);
-        margin-bottom: 2rem;
-        transition: all 0.3s ease;
-    }}
-    
-    .chart-container:hover {{
-        box-shadow: 0 10px 45px rgba(0,0,0,0.12);
-        transform: translateY(-4px);
-    }}
-    
-    .chart-title {{
-        font-size: 1.4rem;
-        font-weight: 800;
-        color: {COLORS['primary']};
-        margin-bottom: 1.5rem;
-        padding-bottom: 1rem;
-        border-bottom: 3px solid {COLORS['light']};
-        display: flex;
-        align-items: center;
-        gap: 0.8rem;
-    }}
-    
-    .chart-title i {{
-        color: {COLORS['secondary']};
-        font-size: 1.6rem;
-    }}
-    
     .stTabs [data-baseweb="tab-list"] {{
         gap: 12px;
         background: white;
@@ -352,12 +334,11 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ==================== FUNÇÕES AUXILIARES ====================
-
 def show_loading(message="Carregando"):
     return st.markdown(f"""
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 2rem; background: white; border-radius: 25px; box-shadow: 0 15px 50px rgba(0,0,0,0.08); margin: 3rem auto; max-width: 600px;">
-        <div style="width: 90px; height: 90px; border: 8px solid {COLORS['light']}; border-top-color: {COLORS['secondary']}; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 2rem;"></div>
-        <div style="color: {COLORS['primary']}; font-size: 1.5rem; font-weight: 800;">{message}...</div>
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem;">
+        <div style="width: 90px; height: 90px; border: 8px solid {COLORS['light']}; border-top-color: {COLORS['secondary']}; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        <div style="color: {COLORS['primary']}; font-size: 1.5rem; font-weight: 800; margin-top: 2rem;">{message}</div>
     </div>
     <style>
     @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
@@ -378,10 +359,9 @@ def format_number(num):
         return str(num)
 
 # ==================== CARREGAMENTO DE DADOS ====================
-
 @st.cache_data(ttl=7200, show_spinner=False)
 def load_excel_optimized(versao=5):
-    """VERSÃO 5.1 COM PARQUET CACHE - CORRIGIDO MIXED TYPES"""
+    """VERSÃO 5.2 CORRIGIDA"""
     try:
         parquet_path = Path("MAPEAMENTO_DE_CHIPS.parquet")
         excel_path = Path("MAPEAMENTO DE CHIPS.xlsx")
@@ -389,11 +369,9 @@ def load_excel_optimized(versao=5):
         if not excel_path.exists():
             return pd.DataFrame()
         
-        # Usar Parquet se existir e for mais recente
         if parquet_path.exists() and parquet_path.stat().st_mtime > excel_path.stat().st_mtime:
             return pd.read_parquet(parquet_path)
         
-        # Carregar Excel
         cols_needed = [
             'PROJETO', 'ICCID', 'OPERADORA', 
             'DATA DE ENTREGA', 'DATA DE ATIVAÇÃO', 'DATA DE VENCIMENTO',
@@ -419,30 +397,25 @@ def load_excel_optimized(versao=5):
         
         df_completo = pd.concat(dfs, ignore_index=True)
         
-        # CONVERSÃO DE TIPOS PARA EVITAR ERRO NO PARQUET
         colunas_texto = ['PROJETO', 'ICCID', 'OPERADORA', 'STATUS NA OP.']
         for col in colunas_texto:
             if col in df_completo.columns:
                 df_completo[col] = df_completo[col].astype(str)
         
-        # Normalização
         if 'OPERADORA' in df_completo.columns:
             df_completo['OPERADORA'] = df_completo['OPERADORA'].apply(normalizar_operadora)
         
-        # Datas
         date_cols = ['DATA DE ENTREGA', 'DATA DE ATIVAÇÃO', 'DATA DE VENCIMENTO', 'ÚLTIMA CONEXÃO']
         for col in date_cols:
             if col in df_completo.columns:
                 df_completo[col] = pd.to_datetime(df_completo[col], errors='coerce', format='mixed')
         
-        # Status da licença
         hoje = pd.Timestamp.now().normalize()
         if 'DATA DE VENCIMENTO' in df_completo.columns:
             df_completo['STATUS_LICENCA'] = df_completo['DATA DE VENCIMENTO'].apply(
                 lambda x: 'Expirado' if pd.notna(x) and x < hoje else 'Válido'
             )
         
-        # Categoria de conexão
         if 'ÚLTIMA CONEXÃO' in df_completo.columns:
             def categorizar_conexao(data_conexao):
                 if pd.isna(data_conexao):
@@ -459,20 +432,17 @@ def load_excel_optimized(versao=5):
             
             df_completo['CATEGORIA_CONEXAO'] = df_completo['ÚLTIMA CONEXÃO'].apply(categorizar_conexao)
         
-        # Limpar status vazios e normalizar
         if 'STATUS NA OP.' in df_completo.columns:
-            df_completo['STATUS NA OP.'] = df_completo['STATUS NA OP.'].replace(['nan', 'None', ''], 'Não Informado')
+            df_completo['STATUS NA OP.'] = df_completo['STATUS NA OP.'].replace(['nan', 'None', '', 'NaN'], 'Não Informado')
             df_completo['STATUS NA OP.'] = df_completo['STATUS NA OP.'].str.strip().str.title()
         
-        # CONVERSÃO FINAL - Garantir compatibilidade com Parquet
         for col in df_completo.columns:
             if df_completo[col].dtype == 'object' and col not in date_cols:
                 df_completo[col] = df_completo[col].astype(str).replace('nan', 'Não Informado')
         
-        # Salvar Parquet
         try:
             df_completo.to_parquet(parquet_path, compression='snappy', engine='pyarrow')
-        except Exception as parquet_error:
+        except Exception:
             pass
         
         return df_completo
@@ -559,10 +529,9 @@ def agregar_dados_graficos(df_filtrado):
         'status_op': df_status_op
     }
 
-# ==================== GRÁFICOS PREMIUM CORRIGIDOS ====================
-
+# ==================== GRÁFICOS CORRIGIDOS ====================
 def criar_grafico_operadora_premium(dados):
-    """Gráfico de Pizza Premium - Operadoras"""
+    """Gráfico de Pizza Premium - TEXTO ESCURO"""
     df = dados['operadoras']
     
     color_map = {
@@ -580,9 +549,9 @@ def criar_grafico_operadora_premium(dados):
         hole=0.55,
         marker=dict(
             colors=colors_list,
-            line=dict(color='white', width=5)
+            line=dict(color='white', width=3)
         ),
-        textfont=dict(size=15, family='Inter', color='white', weight=700),
+        textfont=dict(size=16, family='Inter', color=COLORS['primary'], weight=700),
         textinfo='label+percent',
         textposition='outside',
         hovertemplate='<b style="font-size:16px">%{label}</b><br>' +
@@ -611,14 +580,14 @@ def criar_grafico_operadora_premium(dados):
             xanchor="center",
             x=0.5,
             font=dict(size=13, family='Inter', color=COLORS['primary']),
-            bgcolor='rgba(255,255,255,0.8)',
+            bgcolor='rgba(255,255,255,0.9)',
             bordercolor=COLORS['light'],
             borderwidth=1
         ),
-        height=450,
+        height=420,
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=20, r=20, t=40, b=100),
+        margin=dict(l=10, r=10, t=10, b=80),
         hoverlabel=dict(
             bgcolor="white",
             font_size=14,
@@ -630,7 +599,7 @@ def criar_grafico_operadora_premium(dados):
     return fig
 
 def criar_grafico_conexoes_premium(dados):
-    """Gráfico de Rosca Premium - Conexões"""
+    """Gráfico de Rosca Premium - TEXTO ESCURO"""
     df = dados['conexoes']
     
     if df.empty:
@@ -651,9 +620,9 @@ def criar_grafico_conexoes_premium(dados):
         hole=0.6,
         marker=dict(
             colors=colors_list,
-            line=dict(color='white', width=5)
+            line=dict(color='white', width=3)
         ),
-        textfont=dict(size=14, family='Inter', color='white', weight=700),
+        textfont=dict(size=15, family='Inter', color=COLORS['primary'], weight=700),
         textinfo='label+percent',
         textposition='outside',
         hovertemplate='<b style="font-size:16px">%{label}</b><br>' +
@@ -685,14 +654,14 @@ def criar_grafico_conexoes_premium(dados):
             xanchor="center",
             x=0.5,
             font=dict(size=12, family='Inter', color=COLORS['primary']),
-            bgcolor='rgba(255,255,255,0.8)',
+            bgcolor='rgba(255,255,255,0.9)',
             bordercolor=COLORS['light'],
             borderwidth=1
         ),
-        height=460,
+        height=420,
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=20, r=20, t=40, b=110),
+        margin=dict(l=10, r=10, t=10, b=90),
         hoverlabel=dict(
             bgcolor="white",
             font_size=14,
@@ -727,7 +696,7 @@ def criar_grafico_status_op_premium(dados):
         orientation='h',
         marker=dict(
             color=colors_list,
-            line=dict(color='white', width=3)
+            line=dict(color='white', width=2)
         ),
         text=[f"<b>{q:,.0f}</b>".replace(',', '.') for q in df['Qtd']],
         textposition='outside',
@@ -815,10 +784,10 @@ def criar_grafico_vencimentos_premium(dados):
             zeroline=False,
             tickfont=dict(size=11, family='Inter', color=COLORS['dark_gray'])
         ),
-        height=420,
+        height=400,
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=60, r=40, t=40, b=80),
+        margin=dict(l=60, r=40, t=20, b=80),
         hoverlabel=dict(
             bgcolor="white",
             font_size=14,
@@ -845,7 +814,7 @@ def criar_grafico_projetos_premium(dados):
         marker=dict(
             color=df['Qtd'],
             colorscale=[[0, COLORS['light_green']], [0.5, COLORS['secondary']], [1, COLORS['dark_green']]],
-            line=dict(color='white', width=3),
+            line=dict(color='white', width=2),
             showscale=False
         ),
         text=[f"<b>{q:,.0f}</b>".replace(',', '.') for q in df['Qtd']],
@@ -872,7 +841,7 @@ def criar_grafico_projetos_premium(dados):
             showline=False,
             tickfont=dict(size=11, family='Inter', color=COLORS['primary'], weight=500)
         ),
-        height=480,
+        height=450,
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         margin=dict(l=180, r=100, t=20, b=40),
@@ -887,7 +856,6 @@ def criar_grafico_projetos_premium(dados):
     return fig
 
 # ==================== ALERTAS INTELIGENTES ====================
-
 def gerar_alertas_inteligentes(df):
     """Identifica e exibe alertas importantes"""
     alertas = []
@@ -908,7 +876,7 @@ def gerar_alertas_inteligentes(df):
     if 'STATUS_LICENCA' in df.columns:
         expiradas = df[df['STATUS_LICENCA'] == 'Expirado']
         if len(expiradas) > 0:
-            alertas.append(("error", f"❌ **{len(expiradas)} licenças** já expiradas - renovação necessária"))
+            alertas.append(("error", f"❌ **{len(expiradas)} licenças** já expiradas - renovação urgente"))
     
     if 'CATEGORIA_CONEXAO' in df.columns:
         nunca_conectou = df[df['CATEGORIA_CONEXAO'] == 'Nunca Conectou']
@@ -928,7 +896,6 @@ def gerar_alertas_inteligentes(df):
         st.markdown("---")
 
 # ==================== EXPORTAÇÃO DE DADOS ====================
-
 def criar_botoes_exportacao(df_filtrado):
     """Permite download dos dados filtrados"""
     st.markdown("### 📥 Exportar Dados")
@@ -970,7 +937,6 @@ def criar_botoes_exportacao(df_filtrado):
         )
 
 # ==================== ASSISTENTE IA COM GROQ ====================
-
 def criar_prompt_sistema(df_filtrado):
     """Cria prompt do sistema com contexto dos dados"""
     hoje = pd.Timestamp.now().strftime("%d/%m/%Y")
@@ -981,7 +947,7 @@ def criar_prompt_sistema(df_filtrado):
     validas = (df_filtrado['STATUS_LICENCA'] == 'Válido').sum() if 'STATUS_LICENCA' in df_filtrado.columns else 0
     expiradas = (df_filtrado['STATUS_LICENCA'] == 'Expirado').sum() if 'STATUS_LICENCA' in df_filtrado.columns else 0
     
-    prompt_sistema = f"""Você é o Assistente IA da Base Mobile, especializado em análise de dados de gestão de licenças de chips M2M/IoT.
+    prompt_sistema = f"""Você é o Assistente IA da Base Mobile, especializado em análise de dados de licenças de chips/SIMs.
 
 🎯 DIRETRIZES FUNDAMENTAIS:
 - Você é um especialista em telecomunicações e análise de dados
@@ -1021,7 +987,7 @@ def criar_prompt_sistema(df_filtrado):
 - Interpretação de tendências temporais
 
 Se a pergunta fugir do escopo, responda educadamente:
-"Sou especializado em análise de dados de licenças da Base Mobile. Posso ajudar com análises, métricas, tendências e insights sobre gestão de chips. Como posso auxiliar com os dados de licenças?"
+"Sou especializado em análise de dados de licenças da Base Mobile. Posso ajudar com análises, insights e recomendações sobre gestão de licenças."
 """
     return prompt_sistema
 
@@ -1050,7 +1016,6 @@ def processar_mensagem_groq(client, mensagens, df_filtrado):
         return None
 
 # ==================== SESSION STATE ====================
-
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'df_loaded' not in st.session_state:
@@ -1062,13 +1027,13 @@ if 'filtros_ativos' not in st.session_state:
 with st.sidebar:
     if logo_icon:
         st.markdown(f"""
-        <div style="text-align: center; padding: 1.5rem; background: rgba(255,255,255,0.15); border-radius: 20px; margin-bottom: 2rem; backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.2);">
-            <img src="data:image/png;base64,{logo_icon}" style="max-width: 100px; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.4));">
+        <div style="text-align: center; padding: 1.5rem; background: rgba(255,255,255,0.1); border-radius: 16px; margin-bottom: 1.5rem;">
+            <img src="data:image/png;base64,{logo_icon}" style="max-width: 100px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));">
         </div>
         """, unsafe_allow_html=True)
     
     st.markdown("### 📊 Gestão de Licenças")
-    st.caption("Base Mobile 2026 • v5.1 AI Edition")
+    st.caption("Base Mobile 2026 • v5.2 AI Edition")
     st.markdown("---")
     
     st.markdown("### 🎯 Filtros Dinâmicos")
@@ -1076,16 +1041,16 @@ with st.sidebar:
     if st.session_state.df_loaded is not None and not st.session_state.df_loaded.empty:
         df_temp = st.session_state.df_loaded
         
-        projetos = st.multiselect("📍 Projetos", sorted(df_temp['PROJETO'].unique()), key="filtro_projetos")
-        operadoras = st.multiselect("📡 Operadoras", sorted(df_temp['OPERADORA'].unique()), key="filtro_operadoras")
+        projetos = st.multiselect("📍 Projetos", sorted(df_temp['PROJETO'].unique()), key="filtro_proj")
+        operadoras = st.multiselect("📡 Operadoras", sorted(df_temp['OPERADORA'].unique()), key="filtro_op")
         
         if 'STATUS NA OP.' in df_temp.columns:
-            status_op = st.multiselect("🔌 Status na OP", sorted(df_temp['STATUS NA OP.'].unique()), key="filtro_status_op")
+            status_op = st.multiselect("🔌 Status na OP", sorted(df_temp['STATUS NA OP.'].unique()), key="filtro_status")
         else:
             status_op = []
         
         if 'STATUS_LICENCA' in df_temp.columns:
-            status_lic = st.multiselect("✅ Status Licença", ['Válido', 'Expirado'], key="filtro_status_lic")
+            status_lic = st.multiselect("✅ Status Licença", ['Válido', 'Expirado'], key="filtro_lic")
         else:
             status_lic = []
         
@@ -1130,11 +1095,11 @@ st.markdown(f"""
 <div class="header-container">
     <div style="display: flex; align-items: center; gap: 2rem;">
         <div class="header-logo">
-            {f'<img src="data:image/png;base64,{logo_full}" style="max-height: 55px;">' if logo_full else '<div style="font-size: 2rem; font-weight: 900; color: ' + COLORS['accent'] + ';">BASE MOBILE</div>'}
+            {f'<img src="data:image/png;base64,{logo_full}" style="max-height: 55px;">' if logo_full else '<div style="font-size: 2rem;">📊</div>'}
         </div>
         <div>
             <h1 class="header-title">Dashboard Gerencial de Licenças</h1>
-            <p class="header-subtitle">Sistema Enterprise 5.1 AI Edition | Analytics & Intelligence</p>
+            <p class="header-subtitle">Sistema Enterprise 5.2 AI Edition | Analytics & Insights</p>
         </div>
     </div>
 </div>
@@ -1152,12 +1117,12 @@ if st.session_state.df_loaded is None:
 df = st.session_state.df_loaded
 
 if df.empty:
-    st.error("❌ Erro ao carregar dados. Verifique se o arquivo 'MAPEAMENTO DE CHIPS.xlsx' existe.")
+    st.error("❌ Erro ao carregar dados. Verifique se o arquivo 'MAPEAMENTO DE CHIPS.xlsx' existe no diretório.")
     st.stop()
 
 df_filtrado = aplicar_filtros(df, st.session_state.filtros_ativos)
 
-st.success(f"✅ **{len(df_filtrado):,} licenças** carregadas | **{df_filtrado['PROJETO'].nunique()} projetos** | **{df_filtrado['OPERADORA'].nunique()} operadoras**".replace(',', '.'))
+st.success(f"✅ **{len(df_filtrado):,} licenças** carregadas | **{df_filtrado['PROJETO'].nunique()} projetos** ativos")
 st.markdown("---")
 
 # ==================== TABS ====================
@@ -1185,11 +1150,11 @@ with tab1:
             <div class="metric-card" style="animation-delay: {delay}s;">
                 <div class="metric-icon" style="color: {color};">{icon}</div>
                 <div class="metric-label">{label}</div>
-                <div class="metric-value" style="color: {color};">{format_number(value) if isinstance(value, (int, float)) else value}</div>
+                <div class="metric-value">{format_number(value) if isinstance(value, int) else value}</div>
             </div>
             """, unsafe_allow_html=True)
     
-    st.markdown("<div class='mb-4'></div>", unsafe_allow_html=True)
+    st.markdown('<div class="mb-4"></div>', unsafe_allow_html=True)
     
     gerar_alertas_inteligentes(df_filtrado)
     
@@ -1200,50 +1165,30 @@ with tab1:
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("""
-        <div class="chart-container">
-            <div class="chart-title"><i class="fas fa-chart-pie"></i> Distribuição por Operadora</div>
-        """, unsafe_allow_html=True)
+        st.markdown("#### 📊 Distribuição por Operadora")
         fig_op = criar_grafico_operadora_premium(dados_graficos)
         st.plotly_chart(fig_op, use_container_width=True, config={'displayModeBar': False})
-        st.markdown("</div>", unsafe_allow_html=True)
     
     with col2:
-        st.markdown("""
-        <div class="chart-container">
-            <div class="chart-title"><i class="fas fa-signal"></i> Análise de Conexões</div>
-        """, unsafe_allow_html=True)
+        st.markdown("#### 📶 Análise de Conexões")
         fig_conexao = criar_grafico_conexoes_premium(dados_graficos)
         st.plotly_chart(fig_conexao, use_container_width=True, config={'displayModeBar': False})
-        st.markdown("</div>", unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("""
-        <div class="chart-container">
-            <div class="chart-title"><i class="fas fa-server"></i> Status nas Operadoras</div>
-        """, unsafe_allow_html=True)
+        st.markdown("#### 🔌 Status nas Operadoras")
         fig_status = criar_grafico_status_op_premium(dados_graficos)
         st.plotly_chart(fig_status, use_container_width=True, config={'displayModeBar': False})
-        st.markdown("</div>", unsafe_allow_html=True)
     
     with col2:
-        st.markdown("""
-        <div class="chart-container">
-            <div class="chart-title"><i class="fas fa-building"></i> Top 10 Projetos</div>
-        """, unsafe_allow_html=True)
+        st.markdown("#### 🏢 Top 10 Projetos")
         fig_proj = criar_grafico_projetos_premium(dados_graficos)
         st.plotly_chart(fig_proj, use_container_width=True, config={'displayModeBar': False})
-        st.markdown("</div>", unsafe_allow_html=True)
     
-    st.markdown("""
-    <div class="chart-container">
-        <div class="chart-title"><i class="fas fa-calendar-alt"></i> Timeline de Vencimentos (Próximos 12 Meses)</div>
-    """, unsafe_allow_html=True)
+    st.markdown("#### 📅 Timeline de Vencimentos (Próximos 12 Meses)")
     fig_venc = criar_grafico_vencimentos_premium(dados_graficos)
     st.plotly_chart(fig_venc, use_container_width=True, config={'displayModeBar': False})
-    st.markdown("</div>", unsafe_allow_html=True)
     
     st.markdown("---")
     criar_botoes_exportacao(df_filtrado)
@@ -1259,8 +1204,9 @@ with tab2:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
         
-        if prompt := st.chat_input("Pergunte sobre os dados de licenças... 💭"):
+        if prompt := st.chat_input("Pergunte sobre os dados de licenças..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
+            
             with st.chat_message("user"):
                 st.markdown(prompt)
             
@@ -1278,24 +1224,25 @@ with tab2:
                     
                     message_placeholder.markdown(full_response)
                 else:
-                    full_response = "Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente."
+                    full_response = "Desculpe, ocorreu um erro ao processar sua mensagem."
                     message_placeholder.markdown(full_response)
             
             st.session_state.messages.append({"role": "assistant", "content": full_response})
         
         st.markdown("---")
+        
         with st.expander("💡 Perguntas Sugeridas", expanded=True):
             col1, col2 = st.columns(2)
             
             perguntas_exemplo = [
-                "📊 Qual operadora tem mais licenças ativas?",
-                "⏰ Quantas licenças vencem nos próximos 30 dias?",
-                "🔴 Quais projetos têm mais chips sem conexão?",
-                "📈 Qual a taxa de ativação por operadora?",
-                "🚨 Identifique possíveis problemas ou alertas",
-                "💡 Sugira otimizações para reduzir custos",
-                "📉 Analise a tendência de vencimentos",
-                "🎯 Quais projetos precisam de atenção imediata?"
+                "Qual operadora tem mais licenças ativas?",
+                "Quantas licenças vencem nos próximos 30 dias?",
+                "Quais projetos têm mais chips sem conexão?",
+                "Qual a taxa de ativação por operadora?",
+                "Identifique possíveis problemas ou alertas",
+                "Sugira otimizações para reduzir custos",
+                "Analise a tendência de vencimentos",
+                "Quais projetos precisam de atenção imediata?"
             ]
             
             for i, pergunta in enumerate(perguntas_exemplo):
@@ -1310,7 +1257,7 @@ with tab2:
             st.rerun()
     
     else:
-        st.warning("⚠️ **Assistente IA Desabilitado**")
+        st.warning("⚠️ Assistente IA Desabilitado")
         st.info("""
         Para ativar o Assistente IA, configure sua chave API do Groq:
         
@@ -1333,39 +1280,35 @@ with tab3:
     st.markdown("### 📋 Visualização Detalhada de Dados")
     
     col1, col2, col3 = st.columns([2,2,1])
+    
     with col1:
         busca = st.text_input("🔍 Buscar ICCID ou Projeto", "", key="busca_dados")
+    
     with col2:
         colunas_disponiveis = df_filtrado.columns.tolist()
         colunas_padrao = ['PROJETO', 'ICCID', 'OPERADORA', 'STATUS NA OP.', 'DATA DE VENCIMENTO']
         colunas_padrao = [c for c in colunas_padrao if c in colunas_disponiveis]
-        
         colunas_visiveis = st.multiselect(
-            "Colunas visíveis",
-            options=colunas_disponiveis,
-            default=colunas_padrao,
+            "👁️ Colunas visíveis", 
+            options=colunas_disponiveis, 
+            default=colunas_padrao, 
             key="colunas_visiveis"
         )
+    
     with col3:
-        linhas_por_pagina = st.selectbox("Linhas/página", [10, 25, 50, 100], index=1, key="linhas_pagina")
+        linhas_por_pagina = st.selectbox("Linhas/página", [10, 25, 50, 100], index=1, key="linhas_pag")
     
     if busca:
-        mask = df_filtrado.apply(lambda row: row.astype(str).str.contains(busca, case=False, na=False).any(), axis=1)
+        mask = df_filtrado.apply(lambda row: row.astype(str).str.contains(busca, case=False).any(), axis=1)
         df_exibir = df_filtrado[mask]
     else:
         df_exibir = df_filtrado
     
     total_linhas = len(df_exibir)
-    total_paginas = max(1, (total_linhas // linhas_por_pagina) + (1 if total_linhas % linhas_por_pagina else 0))
+    total_paginas = max(1, (total_linhas - 1) // linhas_por_pagina + 1) if total_linhas > linhas_por_pagina else 1
     
     if total_paginas > 1:
-        pagina_atual = st.number_input(
-            f"Página (de {total_paginas})",
-            min_value=1,
-            max_value=total_paginas,
-            value=1,
-            key="pagina_atual"
-        )
+        pagina_atual = st.number_input(f"Página (de {total_paginas})", min_value=1, max_value=total_paginas, value=1, key="pagina_atual")
     else:
         pagina_atual = 1
     
@@ -1374,11 +1317,10 @@ with tab3:
     
     if colunas_visiveis:
         st.dataframe(
-            df_exibir[colunas_visiveis].iloc[inicio:fim],
+            df_exibir[colunas_visiveis].iloc[inicio:fim], 
             use_container_width=True,
             height=450
         )
-        
         st.caption(f"Exibindo {inicio+1}-{min(fim, total_linhas)} de {total_linhas} registros")
     else:
         st.warning("⚠️ Selecione pelo menos uma coluna para visualizar")
@@ -1387,4 +1329,4 @@ with tab3:
     criar_botoes_exportacao(df_exibir)
 
 st.markdown("---")
-st.caption("© 2026 Base Mobile | Dashboard Enterprise v5.1 AI Edition | Powered by Streamlit, Plotly & Groq AI")
+st.caption("© 2026 Base Mobile | Dashboard Enterprise v5.2 AI Edition | Powered by Streamlit + Groq AI")
