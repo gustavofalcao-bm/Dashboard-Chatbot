@@ -361,7 +361,7 @@ def format_number(num):
 # ==================== CARREGAMENTO DE DADOS ====================
 @st.cache_data(ttl=7200, show_spinner=False)
 def load_excel_optimized(versao=5):
-    """VERSÃO 5.2 CORRIGIDA"""
+    """VERSÃO 1.0"""
     try:
         parquet_path = Path("MAPEAMENTO_DE_CHIPS.parquet")
         excel_path = Path("MAPEAMENTO DE CHIPS.xlsx")
@@ -1033,7 +1033,7 @@ with st.sidebar:
         """, unsafe_allow_html=True)
     
     st.markdown("### 📊 Gestão de Licenças")
-    st.caption("Base Mobile 2026 • v5.2 AI Edition")
+    st.caption("Base Mobile 2026 • v1.0")
     st.markdown("---")
     
     st.markdown("### 🎯 Filtros Dinâmicos")
@@ -1088,7 +1088,7 @@ with st.sidebar:
         st.rerun()
     
     st.markdown("---")
-    st.caption("💡 **Dica:** Use o Assistente IA para análises avançadas")
+    st.caption("💡 **Dica:** Use o Assistente IA para análises avançadas (EM TESTES)")
 
 # ==================== HEADER ====================
 st.markdown(f"""
@@ -1330,4 +1330,5 @@ with tab3:
 
 st.markdown("---")
 st.caption("© 2026 Base Mobile | Dashboard Executivo de Licenças")
+
 
