@@ -6,6 +6,7 @@ from pathlib import Path
 import warnings
 import base64
 import io
+import hashlib
 
 warnings.filterwarnings('ignore')
 
@@ -35,216 +36,384 @@ def load_logo(variants):
 logo_icon = load_logo(["BM-Icone.png", "BM Ícone.png", "BM-Icone.jpg"])
 logo_full = load_logo(["BASE-MOBILE-Fundo-Transparente.png", "BASE MOBILE - Fundo Transparente.png"])
 
-# ==================== CORES ====================
+# ==================== PALETA PREMIUM ====================
 COLORS = {
     'primary': '#2C3E50',
     'secondary': '#8BC34A',
     'accent': '#4CAF50',
-    'warning': '#f39c12',
-    'danger': '#e74c3c',
-    'info': '#3498db',
-    'light': '#ecf0f1',
-    'claro': '#FF0000',
-    'vivo': '#660099',
-    'tim': '#0033A0',
-    'oi': '#FFCC00',
-    'algar': '#00A651'
+    'dark_green': '#2E7D32',
+    'light_green': '#C5E1A5',
+    'warning': '#FFB74D',
+    'danger': '#E57373',
+    'info': '#64B5F6',
+    'light': '#FAFAFA',
+    'gray': '#BDBDBD',
+    'dark_gray': '#616161',
+    'white': '#FFFFFF',
+    'claro': '#FF5252',
+    'vivo': '#7B1FA2',
+    'tim': '#1976D2',
+    'oi': '#FDD835',
+    'algar': '#00C853'
 }
 
-# ==================== CSS PROFISSIONAL ====================
+# ==================== CSS PREMIUM 4.0 ====================
 st.markdown(f"""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
-    * {{ font-family: 'Inter', sans-serif; }}
+    /* FONTS & RESET */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
     
-    .stApp {{ background: linear-gradient(135deg, #f5f7fa 0%, #e8ecef 100%); }}
-    
-    [data-testid="stSidebar"] {{
-        background: linear-gradient(180deg, {COLORS['secondary']} 0%, {COLORS['accent']} 50%, #2ecc71 100%) !important;
-        box-shadow: 5px 0 20px rgba(0,0,0,0.1);
+    * {{
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }}
     
-    [data-testid="stSidebar"] * {{ 
-        color: white !important; 
-        text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    /* BACKGROUND */
+    .stApp {{
+        background: linear-gradient(135deg, #F8F9FA 0%, #E8EEF2 100%);
+    }}
+    
+    /* SIDEBAR PREMIUM */
+    [data-testid="stSidebar"] {{
+        background: linear-gradient(180deg, {COLORS['secondary']} 0%, {COLORS['accent']} 60%, {COLORS['dark_green']} 100%) !important;
+        box-shadow: 4px 0 30px rgba(0,0,0,0.12);
+        border-right: 1px solid rgba(255,255,255,0.1);
+    }}
+    
+    [data-testid="stSidebar"] * {{
+        color: white !important;
     }}
     
     [data-testid="stSidebar"] .stButton>button {{
-        background: rgba(255,255,255,0.25) !important;
-        border: 2px solid white !important;
+        background: rgba(255,255,255,0.15) !important;
+        border: 2px solid rgba(255,255,255,0.4) !important;
+        border-radius: 12px !important;
         color: white !important;
-        font-weight: 700;
-        transition: all 0.3s;
+        font-weight: 700 !important;
+        padding: 0.75rem 1.5rem !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         backdrop-filter: blur(10px);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.85rem !important;
     }}
     
     [data-testid="stSidebar"] .stButton>button:hover {{
         background: white !important;
         color: {COLORS['accent']} !important;
-        transform: translateX(5px);
-        box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        border-color: white !important;
     }}
     
-    [data-testid="stSidebar"] .stMarkdown {{
-        text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    [data-testid="stSidebar"] .stButton>button:active {{
+        transform: translateY(0) scale(0.98);
+    }}
+    
+    /* HEADER PREMIUM */
+    .header-container {{
+        background: linear-gradient(135deg, rgba(44, 62, 80, 0.97), rgba(52, 73, 94, 0.97));
+        padding: 2rem 3rem;
+        border-radius: 20px;
+        margin-bottom: 2.5rem;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        border: 1px solid rgba(255,255,255,0.1);
+        position: relative;
+        overflow: hidden;
+    }}
+    
+    .header-container::before {{
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(45deg, transparent 30%, rgba(139, 195, 74, 0.1) 50%, transparent 70%);
+        animation: shimmer 3s infinite;
+    }}
+    
+    @keyframes shimmer {{
+        0%, 100% {{ transform: translateX(-100%); }}
+        50% {{ transform: translateX(100%); }}
+    }}
+    
+    .header-logo {{
+        background: white;
+        padding: 1.2rem 1.8rem;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        display: inline-block;
+    }}
+    
+    .header-title {{
+        color: white;
+        font-size: 2.5rem;
+        font-weight: 900;
+        margin: 0;
+        letter-spacing: -0.5px;
+        position: relative;
+        z-index: 1;
+    }}
+    
+    .header-subtitle {{
+        color: {COLORS['secondary']};
+        font-size: 1.15rem;
+        margin: 0.5rem 0 0 0;
+        font-weight: 600;
+        position: relative;
+        z-index: 1;
+    }}
+    
+    /* METRIC CARDS PREMIUM */
+    @keyframes fadeInUp {{
+        from {{
+            opacity: 0;
+            transform: translateY(30px);
+        }}
+        to {{
+            opacity: 1;
+            transform: translateY(0);
+        }}
     }}
     
     .metric-card {{
         background: white;
-        padding: 2rem;
-        border-radius: 16px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-        border-left: 5px solid {COLORS['secondary']};
-        transition: all 0.3s;
+        padding: 1.8rem 2rem;
+        border-radius: 18px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        border: 1px solid rgba(0,0,0,0.04);
+        position: relative;
+        overflow: hidden;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: fadeInUp 0.6s ease-out;
+        animation-fill-mode: both;
+    }}
+    
+    .metric-card::before {{
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 5px;
+        background: linear-gradient(180deg, {COLORS['secondary']}, {COLORS['dark_green']});
+        border-radius: 18px 0 0 18px;
+    }}
+    
+    .metric-card::after {{
+        content: '';
+        position: absolute;
+        right: -50px;
+        top: -50px;
+        width: 150px;
+        height: 150px;
+        background: radial-gradient(circle, rgba(139, 195, 74, 0.08) 0%, transparent 70%);
+        border-radius: 50%;
     }}
     
     .metric-card:hover {{
-        transform: translateY(-8px);
-        box-shadow: 0 15px 40px rgba(139, 195, 74, 0.3);
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 12px 40px rgba(139, 195, 74, 0.25);
+        border-color: {COLORS['secondary']};
+    }}
+    
+    .metric-icon {{
+        font-size: 2.5rem;
+        margin-bottom: 0.8rem;
+        opacity: 0.9;
+        display: inline-block;
+        transition: transform 0.3s ease;
+    }}
+    
+    .metric-card:hover .metric-icon {{
+        transform: scale(1.15) rotate(5deg);
     }}
     
     .metric-value {{
-        font-size: 3rem;
-        font-weight: 800;
+        font-size: 2.8rem;
+        font-weight: 900;
         color: {COLORS['primary']};
         line-height: 1;
-        margin: 1rem 0;
+        margin: 1rem 0 0.5rem 0;
+        position: relative;
+        z-index: 1;
     }}
     
     .metric-label {{
-        font-size: 0.85rem;
-        color: #7f8c8d;
+        font-size: 0.8rem;
+        color: {COLORS['dark_gray']};
         text-transform: uppercase;
-        letter-spacing: 2px;
+        letter-spacing: 1.5px;
         font-weight: 700;
+        position: relative;
+        z-index: 1;
     }}
     
-    .stTabs [data-baseweb="tab-list"] {{
-        gap: 15px;
+    .metric-change {{
+        font-size: 0.85rem;
+        margin-top: 0.5rem;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
+        display: inline-block;
+        font-weight: 600;
+    }}
+    
+    .metric-change.positive {{
+        background: rgba(76, 175, 80, 0.1);
+        color: {COLORS['accent']};
+    }}
+    
+    .metric-change.negative {{
+        background: rgba(229, 115, 115, 0.1);
+        color: {COLORS['danger']};
+    }}
+    
+    /* CHART CONTAINERS */
+    .chart-container {{
         background: white;
-        padding: 1rem;
-        border-radius: 16px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        padding: 2rem;
+        border-radius: 20px;
+        box-shadow: 0 6px 30px rgba(0,0,0,0.08);
+        border: 1px solid rgba(0,0,0,0.03);
+        margin-bottom: 2rem;
+        transition: all 0.3s ease;
+    }}
+    
+    .chart-container:hover {{
+        box-shadow: 0 10px 45px rgba(0,0,0,0.12);
+        transform: translateY(-4px);
+    }}
+    
+    .chart-title {{
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: {COLORS['primary']};
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 3px solid {COLORS['light']};
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+    }}
+    
+    .chart-title i {{
+        color: {COLORS['secondary']};
+        font-size: 1.6rem;
+    }}
+    
+    /* TABS PREMIUM */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 12px;
+        background: white;
+        padding: 1rem 1.5rem;
+        border-radius: 20px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        margin-bottom: 2rem;
     }}
     
     .stTabs [data-baseweb="tab"] {{
-        height: 65px;
-        padding: 0 3rem;
-        border-radius: 12px;
-        color: {COLORS['primary']};
+        height: 60px;
+        padding: 0 2.5rem;
+        border-radius: 14px;
+        color: {COLORS['dark_gray']};
         font-weight: 700;
-        font-size: 1.1rem;
+        font-size: 1.05rem;
+        transition: all 0.3s ease;
+        background: transparent;
+        border: 2px solid transparent;
+    }}
+    
+    .stTabs [data-baseweb="tab"]:hover {{
+        background: rgba(139, 195, 74, 0.08);
+        border-color: {COLORS['light_green']};
     }}
     
     .stTabs [aria-selected="true"] {{
         background: linear-gradient(135deg, {COLORS['secondary']}, {COLORS['accent']}) !important;
         color: white !important;
-        border: 3px solid {COLORS['primary']} !important;
+        border-color: {COLORS['dark_green']} !important;
+        box-shadow: 0 4px 15px rgba(139, 195, 74, 0.3);
     }}
     
-    .stButton>button {{
+    /* LOADING STATE */
+    @keyframes pulse {{
+        0%, 100% {{ opacity: 1; }}
+        50% {{ opacity: 0.5; }}
+    }}
+    
+    .skeleton {{
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: loading 1.5s infinite;
         border-radius: 12px;
-        font-weight: 700;
-        border: 3px solid {COLORS['secondary']};
-        background: white;
-        color: {COLORS['primary']};
-        transition: all 0.3s;
     }}
     
-    .stButton>button:hover {{
-        background: linear-gradient(135deg, {COLORS['secondary']}, {COLORS['accent']});
-        color: white;
-        transform: translateY(-3px);
+    @keyframes loading {{
+        0% {{ background-position: 200% 0; }}
+        100% {{ background-position: -200% 0; }}
     }}
     
-    .chat-container {{
-        max-height: 600px;
-        overflow-y: auto !important;
-        padding: 0;
-        background: transparent;
-        margin-bottom: 1.5rem;
+    /* SCROLLBAR */
+    ::-webkit-scrollbar {{
+        width: 12px;
+        height: 12px;
     }}
     
-    .chat-container::-webkit-scrollbar {{ width: 14px; }}
-    .chat-container::-webkit-scrollbar-track {{ background: {COLORS['light']}; border-radius: 10px; }}
-    .chat-container::-webkit-scrollbar-thumb {{ 
-        background: linear-gradient(180deg, {COLORS['secondary']}, {COLORS['accent']}); 
+    ::-webkit-scrollbar-track {{
+        background: {COLORS['light']};
         border-radius: 10px;
     }}
     
-    .stChatMessage {{
-        background: white !important;
-        border-radius: 12px !important;
-        padding: 1.5rem !important;
-        margin-bottom: 1rem !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08) !important;
-        border-left: 4px solid {COLORS['secondary']} !important;
+    ::-webkit-scrollbar-thumb {{
+        background: linear-gradient(180deg, {COLORS['secondary']}, {COLORS['accent']});
+        border-radius: 10px;
+        border: 2px solid {COLORS['light']};
     }}
     
-    @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
-    
-    .loading-container {{
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 4rem 2rem;
-        background: white;
-        border-radius: 25px;
-        box-shadow: 0 15px 50px rgba(0,0,0,0.15);
-        margin: 3rem auto;
-        max-width: 600px;
+    ::-webkit-scrollbar-thumb:hover {{
+        background: linear-gradient(180deg, {COLORS['accent']}, {COLORS['dark_green']});
     }}
     
-    .loading-spinner {{
-        width: 90px;
-        height: 90px;
-        border: 8px solid {COLORS['light']};
-        border-top-color: {COLORS['secondary']};
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin-bottom: 2rem;
-    }}
-    
-    .loading-text {{
-        color: {COLORS['primary']};
-        font-size: 1.5rem;
-        font-weight: 800;
-    }}
+    /* UTILITIES */
+    .text-center {{ text-align: center; }}
+    .mb-1 {{ margin-bottom: 0.5rem; }}
+    .mb-2 {{ margin-bottom: 1rem; }}
+    .mb-3 {{ margin-bottom: 1.5rem; }}
+    .mb-4 {{ margin-bottom: 2rem; }}
+    .mt-2 {{ margin-top: 1rem; }}
+    .mt-3 {{ margin-top: 1.5rem; }}
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== LOADING ====================
+# ==================== FUNÇÕES AUXILIARES ====================
 
 def show_loading(message="Carregando"):
     return st.markdown(f"""
-    <div class="loading-container">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">{message}...</div>
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 2rem; background: white; border-radius: 25px; box-shadow: 0 15px 50px rgba(0,0,0,0.08); margin: 3rem auto; max-width: 600px;">
+        <div style="width: 90px; height: 90px; border: 8px solid {COLORS['light']}; border-top-color: {COLORS['secondary']}; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 2rem;"></div>
+        <div style="color: {COLORS['primary']}; font-size: 1.5rem; font-weight: 800;">{message}...</div>
     </div>
+    <style>
+    @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
+    </style>
     """, unsafe_allow_html=True)
-
-# ==================== NORMALIZAÇÃO ====================
 
 def normalizar_operadora(operadora):
     if pd.isna(operadora):
         return "NÃO INFORMADO"
-    
     op = str(operadora).strip().upper().split()[0]
-    
-    mapeamento = {
-        'CLAROTIM': 'CLARO',
-        'VIVOTIM': 'VIVO',
-        'TIMCLARO': 'TIM'
-    }
-    
+    mapeamento = {'CLAROTIM': 'CLARO', 'VIVOTIM': 'VIVO', 'TIMCLARO': 'TIM'}
     return mapeamento.get(op, op)
 
 # ==================== CARREGAMENTO ====================
 
 @st.cache_data(ttl=7200, show_spinner=False)
-def load_excel_optimized(versao=3):
-    """VERSÃO 3.0 - Com novas colunas ÚLTIMA CONEXÃO e STATUS NA OP."""
+def load_excel_optimized(versao=4):
+    """VERSÃO 4.0 PREMIUM"""
     try:
         excel_path = Path("MAPEAMENTO DE CHIPS.xlsx")
         if not excel_path.exists():
@@ -266,10 +435,8 @@ def load_excel_optimized(versao=3):
         dfs = []
         for sheet_name, df in all_sheets.items():
             df.columns = df.columns.str.strip().str.upper()
-            
             if 'PROJETO' not in df.columns:
                 df['PROJETO'] = sheet_name
-            
             dfs.append(df)
         
         if not dfs:
@@ -277,24 +444,20 @@ def load_excel_optimized(versao=3):
         
         df_completo = pd.concat(dfs, ignore_index=True)
         
-        # Normalizar operadora
         if 'OPERADORA' in df_completo.columns:
             df_completo['OPERADORA'] = df_completo['OPERADORA'].apply(normalizar_operadora)
         
-        # Parse de datas
         date_cols = ['DATA DE ENTREGA', 'DATA DE ATIVAÇÃO', 'DATA DE VENCIMENTO', 'ÚLTIMA CONEXÃO']
         for col in date_cols:
             if col in df_completo.columns:
                 df_completo[col] = pd.to_datetime(df_completo[col], errors='coerce', format='mixed')
         
-        # CALCULAR STATUS DA LICENÇA (automático)
         hoje = pd.Timestamp.now().normalize()
         if 'DATA DE VENCIMENTO' in df_completo.columns:
             df_completo['STATUS_LICENCA'] = df_completo['DATA DE VENCIMENTO'].apply(
                 lambda x: 'Expirado' if pd.notna(x) and x < hoje else 'Válido'
             )
         
-        # CALCULAR CATEGORIA DE CONEXÃO
         if 'ÚLTIMA CONEXÃO' in df_completo.columns:
             def categorizar_conexao(data_conexao):
                 if pd.isna(data_conexao):
@@ -311,7 +474,6 @@ def load_excel_optimized(versao=3):
             
             df_completo['CATEGORIA_CONEXAO'] = df_completo['ÚLTIMA CONEXÃO'].apply(categorizar_conexao)
         
-        # Normalizar STATUS NA OP
         if 'STATUS NA OP.' in df_completo.columns:
             df_completo['STATUS NA OP.'] = df_completo['STATUS NA OP.'].astype(str).str.strip().str.title()
         
@@ -343,11 +505,10 @@ def calcular_metricas_rapido(total_rows, df_hash):
     }
 
 @st.cache_data(ttl=7200, show_spinner=False)
-def agregrar_dados_graficos(df_hash, filtros_hash, versao=3):
-    """VERSÃO 3.0 - Com filtros dinâmicos e novos gráficos"""
+def agregar_dados_graficos(df_hash, filtros_hash, versao=4):
+    """VERSÃO 4.0 PREMIUM com filtros"""
     df = st.session_state.df_loaded
     
-    # APLICAR FILTROS
     filtros = st.session_state.get('filtros_ativos', {})
     df_filtrado = df.copy()
     
@@ -363,15 +524,12 @@ def agregrar_dados_graficos(df_hash, filtros_hash, versao=3):
     if filtros.get('status_licenca'):
         df_filtrado = df_filtrado[df_filtrado['STATUS_LICENCA'].isin(filtros['status_licenca'])]
     
-    # Operadoras
     df_op = df_filtrado['OPERADORA'].value_counts().reset_index()
     df_op.columns = ['Operadora', 'Qtd']
     
-    # Projetos
     df_proj = df_filtrado['PROJETO'].value_counts().head(10).reset_index()
     df_proj.columns = ['Projeto', 'Qtd']
     
-    # Vencimentos
     hoje = pd.Timestamp.now().normalize()
     df_venc = df_filtrado[df_filtrado['DATA DE VENCIMENTO'].notna()].copy()
     df_venc_validos = df_venc[df_venc['DATA DE VENCIMENTO'] > hoje]
@@ -386,7 +544,6 @@ def agregrar_dados_graficos(df_hash, filtros_hash, versao=3):
         labels = ['0-30 dias', '31-90 dias', '91-180 dias', '181-365 dias', '+1 ano']
         venc_cat = pd.Series([0]*5, index=labels)
     
-    # Timeline
     if not df_venc_validos.empty:
         prox_ano = hoje + pd.DateOffset(months=12)
         df_prox = df_venc_validos[df_venc_validos['DATA DE VENCIMENTO'] <= prox_ano]
@@ -396,21 +553,18 @@ def agregrar_dados_graficos(df_hash, filtros_hash, versao=3):
     else:
         venc_mensal = pd.DataFrame(columns=['mes', 'Quantidade'])
     
-    # NOVO: Análise de Conexões
     if 'CATEGORIA_CONEXAO' in df_filtrado.columns:
         df_conexao = df_filtrado['CATEGORIA_CONEXAO'].value_counts().reset_index()
         df_conexao.columns = ['Categoria', 'Qtd']
     else:
         df_conexao = pd.DataFrame(columns=['Categoria', 'Qtd'])
     
-    # NOVO: Status nas Operadoras
     if 'STATUS NA OP.' in df_filtrado.columns:
         df_status_op = df_filtrado['STATUS NA OP.'].value_counts().reset_index()
         df_status_op.columns = ['Status', 'Qtd']
     else:
         df_status_op = pd.DataFrame(columns=['Status', 'Qtd'])
     
-    # Crescimento temporal
     if 'DATA DE ATIVAÇÃO' in df_filtrado.columns:
         df_ativ = df_filtrado[df_filtrado['DATA DE ATIVAÇÃO'].notna()].copy()
         if not df_ativ.empty:
@@ -439,220 +593,379 @@ def format_number(num):
     except:
         return str(num)
 
-def export_to_excel(df, filename):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Licenças')
-    return output.getvalue()
+# ==================== GRÁFICOS PREMIUM ====================
 
-# ==================== CHATBOT ====================
+def criar_grafico_operadora_premium(dados):
+    """Gráfico de Pizza Premium - Operadoras"""
+    df = dados['operadoras']
+    
+    color_map = {
+        'CLARO': COLORS['claro'],
+        'VIVO': COLORS['vivo'],
+        'TIM': COLORS['tim'],
+        'OI': COLORS['oi'],
+        'ALGAR': COLORS['algar']
+    }
+    colors_list = [color_map.get(op, COLORS['gray']) for op in df['Operadora']]
+    
+    fig = go.Figure(data=[go.Pie(
+        labels=df['Operadora'],
+        values=df['Qtd'],
+        hole=0.55,
+        marker=dict(
+            colors=colors_list,
+            line=dict(color='white', width=5)
+        ),
+        textfont=dict(size=15, family='Inter', color='white', weight=700),
+        textinfo='label+percent',
+        textposition='outside',
+        hovertemplate='<b style="font-size:16px">%{label}</b><br>' +
+                     '<span style="font-size:14px">Licenças: %{value:,.0f}</span><br>' +
+                     '<span style="font-size:14px">Percentual: %{percent}</span>' +
+                     '<extra></extra>',
+        pull=[0.05 if i == 0 else 0 for i in range(len(df))]
+    )])
+    
+    total = df['Qtd'].sum()
+    fig.add_annotation(
+        text=f'<b style="font-size:32px; color:{COLORS["primary"]}">{total:,.0f}</b><br>' +
+             f'<span style="font-size:14px; color:{COLORS["dark_gray"]}">Total de Licenças</span>',
+        x=0.5, y=0.5,
+        showarrow=False,
+        font=dict(family='Inter')
+    )
+    
+    fig.update_layout(
+        title=None,
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.15,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=13, family='Inter', color=COLORS['dark_gray']),
+            bgcolor='rgba(255,255,255,0.8)',
+            bordercolor=COLORS['light'],
+            borderwidth=1
+        ),
+        height=450,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=20, r=20, t=40, b=100),
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=14,
+            font_family="Inter",
+            bordercolor=COLORS['light']
+        )
+    )
+    
+    return fig
+
+def criar_grafico_conexoes_premium(dados):
+    """Gráfico de Rosca Premium - Conexões"""
+    df = dados['conexoes']
+    
+    if df.empty:
+        return go.Figure()
+    
+    cores_conexao = {
+        'Nunca Conectou': COLORS['danger'],
+        'Mais de 180 dias': COLORS['warning'],
+        '91-180 dias': COLORS['info'],
+        '31-90 dias': COLORS['light_green'],
+        '0-30 dias': COLORS['accent']
+    }
+    colors_list = [cores_conexao.get(cat, COLORS['gray']) for cat in df['Categoria']]
+    
+    fig = go.Figure(data=[go.Pie(
+        labels=df['Categoria'],
+        values=df['Qtd'],
+        hole=0.6,
+        marker=dict(
+            colors=colors_list,
+            line=dict(color='white', width=5)
+        ),
+        textfont=dict(size=14, family='Inter', color='white', weight=700),
+        textinfo='label+percent',
+        textposition='outside',
+        hovertemplate='<b style="font-size:16px">%{label}</b><br>' +
+                     '<span style="font-size:14px">Chips: %{value:,.0f}</span><br>' +
+                     '<span style="font-size:14px">Percentual: %{percent}</span>' +
+                     '<extra></extra>'
+    )])
+    
+    total = df['Qtd'].sum()
+    com_conexao = df[df['Categoria'] != 'Nunca Conectou']['Qtd'].sum()
+    perc = (com_conexao / total * 100) if total > 0 else 0
+    
+    fig.add_annotation(
+        text=f'<b style="font-size:30px; color:{COLORS["accent"]}">{com_conexao:,.0f}</b><br>' +
+             f'<span style="font-size:16px; color:{COLORS["primary"]}">{perc:.1f}%</span><br>' +
+             f'<span style="font-size:12px; color:{COLORS["dark_gray"]}">conectaram</span>',
+        x=0.5, y=0.5,
+        showarrow=False,
+        font=dict(family='Inter')
+    )
+    
+    fig.update_layout(
+        title=None,
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=-0.18,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=12, family='Inter', color=COLORS['dark_gray']),
+            bgcolor='rgba(255,255,255,0.8)',
+            bordercolor=COLORS['light'],
+            borderwidth=1
+        ),
+        height=460,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=20, r=20, t=40, b=110),
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=14,
+            font_family="Inter",
+            bordercolor=COLORS['light']
+        )
+    )
+    
+    return fig
+
+def criar_grafico_status_op_premium(dados):
+    """Gráfico de Barras Premium - Status OP"""
+    df = dados['status_op']
+    
+    if df.empty:
+        return go.Figure()
+    
+    df = df.sort_values('Qtd', ascending=True)
+    
+    cores_status = {
+        'Ativo': COLORS['accent'],
+        'Bloqueado': COLORS['warning'],
+        'Suspenso': COLORS['danger'],
+        'Cancelado': COLORS['gray']
+    }
+    colors_list = [cores_status.get(s, COLORS['secondary']) for s in df['Status']]
+    
+    fig = go.Figure(data=[go.Bar(
+        y=df['Status'],
+        x=df['Qtd'],
+        orientation='h',
+        marker=dict(
+            color=colors_list,
+            line=dict(color='white', width=3),
+            pattern_shape=""
+        ),
+        text=[f"<b>{q:,.0f}</b>".replace(',', '.') for q in df['Qtd']],
+        textposition='outside',
+        textfont=dict(size=14, family='Inter', color=COLORS['primary'], weight=700),
+        hovertemplate='<b style="font-size:16px">%{y}</b><br>' +
+                     '<span style="font-size:14px">Quantidade: %{x:,.0f}</span>' +
+                     '<extra></extra>',
+        width=0.7
+    )])
+    
+    fig.update_layout(
+        title=None,
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='rgba(0,0,0,0.04)',
+            gridwidth=1,
+            showline=False,
+            zeroline=False,
+            tickfont=dict(size=12, family='Inter', color=COLORS['dark_gray'])
+        ),
+        yaxis=dict(
+            showgrid=False,
+            showline=False,
+            tickfont=dict(size=13, family='Inter', color=COLORS['primary'], weight=600)
+        ),
+        height=380,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=120, r=80, t=20, b=40),
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=14,
+            font_family="Inter",
+            bordercolor=COLORS['light']
+        )
+    )
+    
+    return fig
+
+def criar_grafico_vencimentos_premium(dados):
+    """Gráfico de Área Premium - Vencimentos"""
+    df = dados['venc_mensal']
+    
+    if df.empty:
+        return go.Figure()
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=df['mes'],
+        y=df['Quantidade'],
+        mode='lines+markers+text',
+        fill='tozeroy',
+        fillcolor=f'rgba(229, 115, 115, 0.15)',
+        line=dict(color=COLORS['danger'], width=4, shape='spline'),
+        marker=dict(
+            size=12,
+            color=COLORS['danger'],
+            line=dict(color='white', width=3),
+            symbol='circle'
+        ),
+        text=[f'<b>{q:,.0f}</b>'.replace(',', '.') if q > 0 else '' for q in df['Quantidade']],
+        textposition='top center',
+        textfont=dict(size=12, family='Inter', color=COLORS['danger'], weight=700),
+        hovertemplate='<b style="font-size:16px">%{x|%B/%Y}</b><br>' +
+                     '<span style="font-size:14px">Vencimentos: %{y:,.0f}</span>' +
+                     '<extra></extra>'
+    ))
+    
+    fig.update_layout(
+        title=None,
+        xaxis=dict(
+            showgrid=False,
+            showline=True,
+            linewidth=2,
+            linecolor=COLORS['light'],
+            tickfont=dict(size=11, family='Inter', color=COLORS['dark_gray']),
+            tickangle=-45
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='rgba(0,0,0,0.04)',
+            gridwidth=1,
+            showline=False,
+            zeroline=False,
+            tickfont=dict(size=11, family='Inter', color=COLORS['dark_gray'])
+        ),
+        height=420,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=60, r=40, t=40, b=80),
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=14,
+            font_family="Inter",
+            bordercolor=COLORS['light']
+        )
+    )
+    
+    return fig
+
+def criar_grafico_projetos_premium(dados):
+    """Gráfico de Barras Premium - Top Projetos"""
+    df = dados['projetos']
+    
+    if df.empty:
+        return go.Figure()
+    
+    df = df.sort_values('Qtd', ascending=True)
+    
+    fig = go.Figure(data=[go.Bar(
+        y=df['Projeto'],
+        x=df['Qtd'],
+        orientation='h',
+        marker=dict(
+            color=df['Qtd'],
+            colorscale=[[0, COLORS['light_green']], [0.5, COLORS['secondary']], [1, COLORS['dark_green']]],
+            line=dict(color='white', width=3),
+            showscale=False
+        ),
+        text=[f"<b>{q:,.0f}</b>".replace(',', '.') for q in df['Qtd']],
+        textposition='outside',
+        textfont=dict(size=13, family='Inter', color=COLORS['primary'], weight=700),
+        hovertemplate='<b style="font-size:15px">%{y}</b><br>' +
+                     '<span style="font-size:14px">Licenças: %{x:,.0f}</span>' +
+                     '<extra></extra>',
+        width=0.75
+    )])
+    
+    fig.update_layout(
+        title=None,
+        xaxis=dict(
+            showgrid=True,
+            gridcolor='rgba(0,0,0,0.04)',
+            gridwidth=1,
+            showline=False,
+            zeroline=False,
+            tickfont=dict(size=11, family='Inter', color=COLORS['dark_gray'])
+        ),
+        yaxis=dict(
+            showgrid=False,
+            showline=False,
+            tickfont=dict(size=11, family='Inter', color=COLORS['primary'], weight=500)
+        ),
+        height=480,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=180, r=100, t=20, b=40),
+        hoverlabel=dict(
+            bgcolor="white",
+            font_size=14,
+            font_family="Inter",
+            bordercolor=COLORS['light']
+        )
+    )
+    
+    return fig
+
+# ==================== SESSION STATE ====================
 
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'df_loaded' not in st.session_state:
     st.session_state.df_loaded = None
-if 'llm_initialized' not in st.session_state:
-    st.session_state.llm_initialized = None
 if 'filtros_ativos' not in st.session_state:
     st.session_state.filtros_ativos = {}
-
-@st.cache_resource(show_spinner=False)
-def init_llm_optimized():
-    try:
-        from langchain_groq import ChatGroq
-        
-        api_key = st.secrets["GROQ_API_KEY"]
-        
-        return ChatGroq(
-            model="llama-3.1-8b-instant",
-            temperature=0,
-            max_tokens=500,
-            timeout=60,
-            groq_api_key=api_key
-        )
-        
-    except Exception as e:
-        st.error(f"❌ Erro Groq: {e}")
-        return None
-
-def gerar_contexto_gerencial(df):
-    """VERSÃO 3.0 - Contexto atualizado com novos campos"""
-    hoje = datetime.now()
-    
-    total = len(df)
-    df_venc = df[df['DATA DE VENCIMENTO'].notna()]
-    validas = len(df_venc[df_venc['DATA DE VENCIMENTO'] > hoje])
-    expiradas = len(df_venc[df_venc['DATA DE VENCIMENTO'] <= hoje])
-    
-    top_op = df['OPERADORA'].value_counts().head(5).to_dict()
-    top_proj = df['PROJETO'].value_counts().head(5).to_dict()
-    
-    df_venc_fut = df_venc[df_venc['DATA DE VENCIMENTO'] > hoje]
-    prox_30d = len(df_venc_fut[df_venc_fut['DATA DE VENCIMENTO'] <= hoje + timedelta(days=30)])
-    prox_90d = len(df_venc_fut[df_venc_fut['DATA DE VENCIMENTO'] <= hoje + timedelta(days=90)])
-    
-    taxa_validas = (validas / total * 100) if total > 0 else 0
-    
-    # NOVO: Análise de Conexões
-    if 'CATEGORIA_CONEXAO' in df.columns:
-        nunca_conectou = len(df[df['CATEGORIA_CONEXAO'] == 'Nunca Conectou'])
-        taxa_conexao = ((total - nunca_conectou) / total * 100) if total > 0 else 0
-    else:
-        nunca_conectou = 0
-        taxa_conexao = 0
-    
-    # NOVO: Status na OP
-    if 'STATUS NA OP.' in df.columns:
-        ativos_op = len(df[df['STATUS NA OP.'] == 'Ativo'])
-        suspensos_op = len(df[df['STATUS NA OP.'] == 'Suspenso'])
-    else:
-        ativos_op = 0
-        suspensos_op = 0
-    
-    return {
-        'total': total,
-        'validas': validas,
-        'expiradas': expiradas,
-        'prox_30d': prox_30d,
-        'prox_90d': prox_90d,
-        'taxa_validas': taxa_validas,
-        'nunca_conectou': nunca_conectou,
-        'taxa_conexao': taxa_conexao,
-        'ativos_op': ativos_op,
-        'suspensos_op': suspensos_op,
-        'top_operadoras': top_op,
-        'top_projetos': top_proj
-    }
-
-def process_chat_gerencial(question, df):
-    if df is None or df.empty:
-        return {"answer": "❌ Dados não disponíveis.", "time": 0}
-    
-    ctx = gerar_contexto_gerencial(df)
-    
-    contexto = f"""
-Você é um ANALISTA SÊNIOR DE GESTÃO DE LICENÇAS da Base Mobile.
-
-DADOS CONSOLIDADOS:
-- Total de Licenças: {ctx['total']:,}
-- Licenças Válidas: {ctx['validas']:,} ({ctx['taxa_validas']:.1f}%)
-- Licenças Expiradas: {ctx['expiradas']:,}
-- Expirando em 30 dias: {ctx['prox_30d']:,}
-- Expirando em 90 dias: {ctx['prox_90d']:,}
-
-CONEXÕES:
-- Nunca Conectaram: {ctx['nunca_conectou']:,}
-- Taxa de Conexão: {ctx['taxa_conexao']:.1f}%
-
-STATUS NAS OPERADORAS:
-- Chips Ativos: {ctx['ativos_op']:,}
-- Chips Suspensos: {ctx['suspensos_op']:,}
-
-TOP 5 OPERADORAS:
-{ctx['top_operadoras']}
-
-TOP 5 PROJETOS:
-{ctx['top_projetos']}
-
-GLOSSÁRIO:
-- PROJETO = Estado/Cliente (ex: "Governo da Bahia" = projeto Bahia)
-- ICCID = LINHA = LICENÇA = CHIP (sinônimos)
-- STATUS LICENÇA: Válido (vencimento futuro) ou Expirado (vencimento passado)
-- STATUS NA OP: Ativo/Suspenso/Bloqueado na operadora (independente da licença)
-- ÚLTIMA CONEXÃO: Última vez que o chip conectou na rede
-
-PERGUNTA DO EXECUTIVO: {question}
-
-INSTRUÇÕES:
-1. Seja DIRETO e EXECUTIVO (máximo 300 palavras)
-2. Use formatação Markdown (negrito, listas, tabelas)
-3. Para projetos/operadoras, use TABELAS Markdown
-4. Destaque RISCOS em **negrito** e OPORTUNIDADES em *itálico*
-5. Termine com 2-3 RECOMENDAÇÕES PRÁTICAS
-
-FORMATO DE TABELA:
-| Projeto | Licenças | Status |
-|---------|----------|--------|
-| Projeto A | 10.000 | ⚠️ Crítico |
-
-Responda em português brasileiro, formato reunião de diretoria.
-"""
-    
-    try:
-        import time
-        start = time.time()
-        
-        if st.session_state.llm_initialized is None:
-            st.session_state.llm_initialized = init_llm_optimized()
-        
-        llm = st.session_state.llm_initialized
-        
-        if llm is None:
-            return {"answer": "⚠️ **IA indisponível**", "time": 0}
-        
-        resposta = llm.invoke(contexto)
-        elapsed = time.time() - start
-        
-        return {"answer": resposta.content if hasattr(resposta, 'content') else str(resposta), "time": elapsed}
-    
-    except Exception as e:
-        return {"answer": f"⚠️ **Erro**: {str(e)[:100]}", "time": 0}
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
     if logo_icon:
         st.markdown(f"""
-        <div style="text-align: center; padding: 1.2rem; background: rgba(255,255,255,0.2); border-radius: 15px; margin-bottom: 1.5rem; backdrop-filter: blur(10px);">
-            <img src="data:image/png;base64,{logo_icon}" style="max-width: 90px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));">
+        <div style="text-align: center; padding: 1.5rem; background: rgba(255,255,255,0.15); border-radius: 20px; margin-bottom: 2rem; backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.2);">
+            <img src="data:image/png;base64,{logo_icon}" style="max-width: 100px; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.4));">
         </div>
         """, unsafe_allow_html=True)
     
     st.markdown("### 📊 Gestão de Licenças")
-    st.caption("Base Mobile 2026")
+    st.caption("Base Mobile 2026 • v4.0 Premium")
     st.markdown("---")
     
-    # FILTROS DINÂMICOS
-    st.markdown("### 🎯 Filtros")
+    # FILTROS
+    st.markdown("### 🎯 Filtros Dinâmicos")
     
     if st.session_state.df_loaded is not None and not st.session_state.df_loaded.empty:
         df_temp = st.session_state.df_loaded
         
-        # Filtro Projeto
-        projetos_disponiveis = sorted(df_temp['PROJETO'].unique())
-        projetos_selecionados = st.multiselect(
-            "Projetos",
-            options=projetos_disponiveis,
-            default=None
-        )
-        st.session_state.filtros_ativos['projetos'] = projetos_selecionados
+        projetos = st.multiselect("📍 Projetos", sorted(df_temp['PROJETO'].unique()), default=None)
+        st.session_state.filtros_ativos['projetos'] = projetos
         
-        # Filtro Operadora
-        operadoras_disponiveis = sorted(df_temp['OPERADORA'].unique())
-        operadoras_selecionadas = st.multiselect(
-            "Operadoras",
-            options=operadoras_disponiveis,
-            default=None
-        )
-        st.session_state.filtros_ativos['operadoras'] = operadoras_selecionadas
+        operadoras = st.multiselect("📡 Operadoras", sorted(df_temp['OPERADORA'].unique()), default=None)
+        st.session_state.filtros_ativos['operadoras'] = operadoras
         
-        # Filtro Status OP
         if 'STATUS NA OP.' in df_temp.columns:
-            status_op_disponiveis = sorted(df_temp['STATUS NA OP.'].unique())
-            status_op_selecionados = st.multiselect(
-                "Status na OP",
-                options=status_op_disponiveis,
-                default=None
-            )
-            st.session_state.filtros_ativos['status_op'] = status_op_selecionados
+            status_op = st.multiselect("🔌 Status na OP", sorted(df_temp['STATUS NA OP.'].unique()), default=None)
+            st.session_state.filtros_ativos['status_op'] = status_op
         
-        # Filtro Status Licença
         if 'STATUS_LICENCA' in df_temp.columns:
-            status_lic_selecionados = st.multiselect(
-                "Status Licença",
-                options=['Válido', 'Expirado'],
-                default=None
-            )
-            st.session_state.filtros_ativos['status_licenca'] = status_lic_selecionados
+            status_lic = st.multiselect("✅ Status Licença", ['Válido', 'Expirado'], default=None)
+            st.session_state.filtros_ativos['status_licenca'] = status_lic
+        
+        # Contador de filtros ativos
+        total_filtros = sum(1 for v in st.session_state.filtros_ativos.values() if v)
+        if total_filtros > 0:
+            st.info(f"🎯 **{total_filtros} filtro(s) ativo(s)**")
         
         if st.button("🔄 Limpar Filtros", use_container_width=True):
             st.session_state.filtros_ativos = {}
@@ -660,55 +973,25 @@ with st.sidebar:
     
     st.markdown("---")
     
-    st.markdown("### 🎛️ Ações")
+    st.markdown("### 🎛️ Ações Rápidas")
     
-    if st.button("🔄 Recarregar", key="reload", use_container_width=True):
+    if st.button("🔄 Recarregar Dados", key="reload", use_container_width=True):
         st.cache_data.clear()
         st.cache_resource.clear()
         st.session_state.clear()
         st.rerun()
-    
-    st.markdown("---")
-    
-    st.markdown("### 📤 Exportar")
-    
-    if st.session_state.df_loaded is not None and not st.session_state.df_loaded.empty:
-        df = st.session_state.df_loaded
-        hoje = pd.Timestamp.now().normalize()
-        
-        df_exp = df[df['DATA DE VENCIMENTO'].notna()]
-        df_exp = df_exp[(df_exp['DATA DE VENCIMENTO'] > hoje) & (df_exp['DATA DE VENCIMENTO'] <= hoje + timedelta(days=30))]
-        
-        if not df_exp.empty:
-            excel_exp = export_to_excel(df_exp.head(10000), "expirando.xlsx")
-            st.download_button(
-                label=f"⚠️ Expirando 30d ({len(df_exp):,})".replace(',', '.'),
-                data=excel_exp,
-                file_name=f"expirando_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
 
 # ==================== HEADER ====================
 st.markdown(f"""
-<div style="background: linear-gradient(135deg, rgba(44, 62, 80, 0.95), rgba(52, 73, 94, 0.95)); 
-            padding: 2.5rem 3rem; 
-            border-radius: 20px; 
-            margin-bottom: 2rem; 
-            box-shadow: 0 15px 50px rgba(0,0,0,0.2);
-            display: flex;
-            align-items: center;
-            gap: 2rem;">
-    <div style="background: white; padding: 1rem 1.5rem; border-radius: 15px;">
-        {f'<img src="data:image/png;base64,{logo_full}" style="max-height: 50px;">' if logo_full else '<div>BASE MOBILE</div>'}
-    </div>
-    <div>
-        <h1 style="color: white; font-size: 2.2rem; font-weight: 800; margin: 0;">
-            Gestão de Licenças Corporativas
-        </h1>
-        <p style="color: {COLORS['secondary']}; font-size: 1.1rem; margin: 0.5rem 0 0 0; font-weight: 600;">
-            Sistema Enterprise | Base Mobile 2026
-        </p>
+<div class="header-container">
+    <div style="display: flex; align-items: center; gap: 2rem;">
+        <div class="header-logo">
+            {f'<img src="data:image/png;base64,{logo_full}" style="max-height: 55px;">' if logo_full else '<div style="font-size: 2rem; font-weight: 900; color: ' + COLORS['accent'] + ';">BASE MOBILE</div>'}
+        </div>
+        <div>
+            <h1 class="header-title">Dashboard Gerencial de Licenças</h1>
+            <p class="header-subtitle">Sistema Enterprise 4.0 Premium | Analytics & Intelligence</p>
+        </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -716,15 +999,10 @@ st.markdown(f"""
 # ==================== CARREGAMENTO ====================
 if st.session_state.df_loaded is None:
     loading_placeholder = st.empty()
-    
     with loading_placeholder.container():
         show_loading("Processando base de dados")
     
-    st.session_state.df_loaded = load_excel_optimized(versao=3)
-    
-    if st.session_state.llm_initialized is None:
-        st.session_state.llm_initialized = init_llm_optimized()
-    
+    st.session_state.df_loaded = load_excel_optimized(versao=4)
     loading_placeholder.empty()
 
 df = st.session_state.df_loaded
@@ -733,341 +1011,101 @@ if df.empty:
     st.error("❌ Erro ao carregar dados")
     st.stop()
 
-st.success(f"✅ **{len(df):,} licenças** de **{df['PROJETO'].nunique()} projetos** | **{df['OPERADORA'].nunique()} operadoras**".replace(',', '.'))
+st.success(f"✅ **{len(df):,} licenças** carregadas | **{df['PROJETO'].nunique()} projetos** | **{df['OPERADORA'].nunique()} operadoras**".replace(',', '.'))
 st.markdown("---")
 
 # ==================== TABS ====================
 tab1, tab2 = st.tabs(["📊 Dashboard Executivo", "💬 Assistente IA"])
 
-# ==================== TAB 1 ====================
 with tab1:
-    st.markdown("### 🎯 Indicadores Principais")
+    st.markdown("### 🎯 Indicadores Estratégicos")
     
-    df_hash = hash(len(df))
-    filtros_hash = hash(str(st.session_state.filtros_ativos))
+    df_hash = hashlib.md5(str(len(df)).encode()).hexdigest()
+    filtros_hash = hashlib.md5(str(st.session_state.filtros_ativos).encode()).hexdigest()
     metricas = calcular_metricas_rapido(len(df), df_hash)
     
+    # CARDS DE MÉTRICAS
     col1, col2, col3, col4, col5, col6 = st.columns(6)
     
-    metrics_data = [
-        (col1, "📋 Total", metricas['total'], COLORS['secondary']),
-        (col2, "🔗 Vinculadas", metricas['vinculadas'], COLORS['secondary']),
-        (col3, "📊 %", f"{metricas['perc_vinculadas']:.0f}%", COLORS['secondary']),
-        (col4, "💼 Saldo", metricas['saldo'], COLORS['info']),
-        (col5, "✅ Válidas", metricas['validas'], COLORS['accent']),
-        (col6, "❌ Expiradas", metricas['expiradas'], COLORS['danger'])
+    cards = [
+        (col1, "📋", "Total de Licenças", metricas['total'], COLORS['secondary'], 0),
+        (col2, "🔗", "Vinculadas", metricas['vinculadas'], COLORS['secondary'], 0.1),
+        (col3, "📊", "Taxa Vinculação", f"{metricas['perc_vinculadas']:.0f}%", COLORS['info'], 0.2),
+        (col4, "💼", "Saldo Disponível", metricas['saldo'], COLORS['accent'], 0.3),
+        (col5, "✅", "Licenças Válidas", metricas['validas'], COLORS['accent'], 0.4),
+        (col6, "❌", "Licenças Expiradas", metricas['expiradas'], COLORS['danger'], 0.5)
     ]
     
-    for col, label, value, color in metrics_data:
+    for col, icon, label, value, color, delay in cards:
         with col:
             st.markdown(f"""
-            <div class="metric-card" style="border-left-color: {color};">
+            <div class="metric-card" style="animation-delay: {delay}s;">
+                <div class="metric-icon" style="color: {color};">{icon}</div>
                 <div class="metric-label">{label}</div>
                 <div class="metric-value" style="color: {color};">{format_number(value) if isinstance(value, (int, float)) else value}</div>
             </div>
             """, unsafe_allow_html=True)
     
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    st.markdown("### 📊 Análises Estratégicas")
+    st.markdown("<div class='mb-4'></div>", unsafe_allow_html=True)
     
-    dados_graficos = agregrar_dados_graficos(df_hash, filtros_hash, versao=3)
+    # GRÁFICOS
+    st.markdown("### 📊 Análises Visuais")
+    
+    dados_graficos = agregar_dados_graficos(df_hash, filtros_hash, versao=4)
     
     # LINHA 1
     col1, col2 = st.columns(2)
     
     with col1:
-        df_op = dados_graficos['operadoras']
-        
-        color_map = {'CLARO': COLORS['claro'], 'VIVO': COLORS['vivo'], 'TIM': COLORS['tim'], 'OI': COLORS['oi'], 'ALGAR': COLORS['algar']}
-        colors_list = [color_map.get(op, COLORS['secondary']) for op in df_op['Operadora']]
-        
-        fig = go.Figure(data=[go.Pie(
-            labels=df_op['Operadora'],
-            values=df_op['Qtd'],
-            hole=0.5,
-            marker=dict(colors=colors_list, line=dict(color='white', width=4)),
-            textfont=dict(size=16, family='Inter', color='white'),
-            textinfo='label+percent',
-            hovertemplate='<b>%{label}</b><br>Licenças: %{value:,}<br>%{percent}<extra></extra>'
-        )])
-        
-        fig.update_layout(
-            title=dict(text="<b>Distribuição por Operadora</b>", font=dict(size=20, family='Inter', color=COLORS['primary']), x=0.5, xanchor='center'),
-            height=400,
-            showlegend=True,
-            legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5, font=dict(size=12)),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=20, r=20, t=60, b=80)
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("""
+        <div class="chart-container">
+            <div class="chart-title"><i class="fas fa-chart-pie"></i> Distribuição por Operadora</div>
+        """, unsafe_allow_html=True)
+        fig_op = criar_grafico_operadora_premium(dados_graficos)
+        st.plotly_chart(fig_op, use_container_width=True, config={'displayModeBar': False})
+        st.markdown("</div>", unsafe_allow_html=True)
     
     with col2:
-        # NOVO: Gráfico de Conexões (ROSCA)
-        df_conexao = dados_graficos['conexoes']
-        
-        if not df_conexao.empty:
-            cores_conexao = {
-                'Nunca Conectou': COLORS['danger'],
-                'Mais de 180 dias': COLORS['warning'],
-                '91-180 dias': COLORS['info'],
-                '31-90 dias': COLORS['secondary'],
-                '0-30 dias': COLORS['accent']
-            }
-            colors_conexao = [cores_conexao.get(cat, COLORS['light']) for cat in df_conexao['Categoria']]
-            
-            fig = go.Figure(data=[go.Pie(
-                labels=df_conexao['Categoria'],
-                values=df_conexao['Qtd'],
-                hole=0.5,
-                marker=dict(colors=colors_conexao, line=dict(color='white', width=3)),
-                textfont=dict(size=14, family='Inter', color='white'),
-                textinfo='label+percent',
-                hovertemplate='<b>%{label}</b><br>Chips: %{value:,}<br>%{percent}<extra></extra>'
-            )])
-            
-            total_conexoes = df_conexao['Qtd'].sum()
-            com_conexao = df_conexao[df_conexao['Categoria'] != 'Nunca Conectou']['Qtd'].sum()
-            perc_conexao = (com_conexao / total_conexoes * 100) if total_conexoes > 0 else 0
-            
-            fig.add_annotation(
-                text=f"<b>{com_conexao:,}</b><br>{perc_conexao:.1f}%<br>conectaram".replace(',', '.'),
-                x=0.5, y=0.5,
-                font=dict(size=16, color=COLORS['accent']),
-                showarrow=False
-            )
-            
-            fig.update_layout(
-                title=dict(text="<b>Análise de Conexões</b>", font=dict(size=20, family='Inter', color=COLORS['primary']), x=0.5, xanchor='center'),
-                height=400,
-                showlegend=True,
-                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5, font=dict(size=11)),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=20, r=20, t=60, b=80)
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class="chart-container">
+            <div class="chart-title"><i class="fas fa-signal"></i> Análise de Conexões</div>
+        """, unsafe_allow_html=True)
+        fig_conexao = criar_grafico_conexoes_premium(dados_graficos)
+        st.plotly_chart(fig_conexao, use_container_width=True, config={'displayModeBar': False})
+        st.markdown("</div>", unsafe_allow_html=True)
     
     # LINHA 2
     col1, col2 = st.columns(2)
     
     with col1:
-        # NOVO: Status nas Operadoras (BARRAS)
-        df_status_op = dados_graficos['status_op']
-        
-        if not df_status_op.empty:
-            df_status_op = df_status_op.sort_values('Qtd', ascending=True)
-            
-            cores_status = {
-                'Ativo': COLORS['accent'],
-                'Suspenso': COLORS['warning'],
-                'Bloqueado': COLORS['danger'],
-                'Cancelado': COLORS['light']
-            }
-            colors_status = [cores_status.get(status, COLORS['secondary']) for status in df_status_op['Status']]
-            
-            fig = go.Figure(data=[go.Bar(
-                y=df_status_op['Status'],
-                x=df_status_op['Qtd'],
-                orientation='h',
-                marker=dict(color=colors_status, line=dict(color='white', width=2)),
-                text=df_status_op['Qtd'].apply(lambda x: f"{x:,}".replace(',', '.')),
-                textposition='outside',
-                textfont=dict(size=14, family='Inter', color=COLORS['primary']),
-                hovertemplate='<b>%{y}</b><br>Chips: %{x:,}<extra></extra>'
-            )])
-            
-            fig.update_layout(
-                title=dict(text="<b>Status nas Operadoras</b>", font=dict(size=20, family='Inter', color=COLORS['primary']), x=0.5, xanchor='center'),
-                height=400,
-                yaxis=dict(categoryorder='total ascending', tickfont=dict(size=12, color=COLORS['primary'])),
-                xaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.05)', zeroline=False),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=20, r=60, t=60, b=40)
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
+        st.markdown("""
+        <div class="chart-container">
+            <div class="chart-title"><i class="fas fa-server"></i> Status nas Operadoras</div>
+        """, unsafe_allow_html=True)
+        fig_status = criar_grafico_status_op_premium(dados_graficos)
+        st.plotly_chart(fig_status, use_container_width=True, config={'displayModeBar': False})
+        st.markdown("</div>", unsafe_allow_html=True)
     
     with col2:
-        df_proj = dados_graficos['projetos']
-        
-        fig = go.Figure(data=[go.Bar(
-            x=df_proj['Qtd'],
-            y=df_proj['Projeto'],
-            orientation='h',
-            marker=dict(
-                color=df_proj['Qtd'],
-                colorscale=[[0, COLORS['accent']], [1, COLORS['primary']]],
-                line=dict(color='white', width=2)
-            ),
-            text=df_proj['Qtd'].apply(lambda x: f"{x:,}".replace(',', '.')),
-            textposition='outside',
-            textfont=dict(size=14, family='Inter', color=COLORS['primary']),
-            hovertemplate='<b>%{y}</b><br>Licenças: %{x:,}<extra></extra>'
-        )])
-        
-        fig.update_layout(
-            title=dict(text="<b>Top 10 Projetos</b>", font=dict(size=20, family='Inter', color=COLORS['primary']), x=0.5, xanchor='center'),
-            height=400,
-            yaxis=dict(categoryorder='total ascending', tickfont=dict(size=11, color=COLORS['primary'])),
-            xaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.05)', zeroline=False),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=20, r=50, t=60, b=40)
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class="chart-container">
+            <div class="chart-title"><i class="fas fa-building"></i> Top 10 Projetos</div>
+        """, unsafe_allow_html=True)
+        fig_proj = criar_grafico_projetos_premium(dados_graficos)
+        st.plotly_chart(fig_proj, use_container_width=True, config={'displayModeBar': False})
+        st.markdown("</div>", unsafe_allow_html=True)
     
     # LINHA 3
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        venc_cat = dados_graficos['venc_categorias']
-        labels = venc_cat.index.tolist()
-        colors_v = [COLORS['danger'], COLORS['warning'], COLORS['info'], COLORS['accent'], COLORS['secondary']]
-        
-        fig = go.Figure(data=[go.Bar(
-            x=labels,
-            y=venc_cat.values,
-            marker=dict(color=colors_v, line=dict(color='white', width=2)),
-            text=venc_cat.values,
-            textposition='outside',
-            textfont=dict(size=16, family='Inter', color=COLORS['primary']),
-            hovertemplate='<b>%{x}</b><br>Licenças: %{y:,}<extra></extra>'
-        )])
-        
-        fig.update_layout(
-            title=dict(text="<b>Vencimentos por Período</b>", font=dict(size=20, family='Inter', color=COLORS['primary']), x=0.5, xanchor='center'),
-            height=400,
-            xaxis=dict(tickfont=dict(size=11, color=COLORS['primary'])),
-            yaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.05)', zeroline=False),
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            margin=dict(l=50, r=40, t=60, b=60)
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        venc_mensal = dados_graficos['venc_mensal']
-        
-        if not venc_mensal.empty:
-            fig = go.Figure(data=[go.Scatter(
-                x=venc_mensal['mes'],
-                y=venc_mensal['Quantidade'],
-                mode='lines+markers',
-                line=dict(color=COLORS['danger'], width=4),
-                marker=dict(size=12, color=COLORS['danger'], line=dict(color='white', width=2)),
-                fill='tozeroy',
-                fillcolor='rgba(231, 76, 60, 0.1)',
-                hovertemplate='<b>%{x|%b/%Y}</b><br>Vencimentos: %{y:,}<extra></extra>'
-            )])
-            
-            fig.update_layout(
-                title=dict(text="<b>Timeline - Próximos 12 Meses</b>", font=dict(size=20, family='Inter', color=COLORS['primary']), x=0.5, xanchor='center'),
-                height=400,
-                xaxis=dict(tickfont=dict(size=11), showgrid=False),
-                yaxis=dict(showgrid=True, gridcolor='rgba(0,0,0,0.05)', zeroline=False),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=50, r=40, t=60, b=60)
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # LINHA 4
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        cresc_mensal = dados_graficos['crescimento']
-        
-        if not cresc_mensal.empty:
-            fig = go.Figure(data=[go.Bar(
-                x=cresc_mensal['mes_ativ'],
-                y=cresc_mensal['Ativações'],
-                marker=dict(color=COLORS['accent'], line=dict(color='white', width=2)),
-                text=cresc_mensal['Ativações'],
-                textposition='outside',
-                textfont=dict(size=14, family='Inter', color=COLORS['primary']),
-                hovertemplate='<b>%{x|%b/%Y}</b><br>Ativações: %{y:,}<extra></extra>'
-            )])
-            
-            fig.update_layout(
-                title=dict(text="<b>Ativações Mensais - Últimos 12 Meses</b>", font=dict(size=20, family='Inter', color=COLORS['primary']), x=0.5, xanchor='center'),
-                height=400,
-                xaxis=dict(tickfont=dict(size=11)),
-                yaxis=dict(title="Ativações", showgrid=True, gridcolor='rgba(0,0,0,0.05)', zeroline=False),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=60, r=40, t=60, b=60)
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
+    st.markdown("""
+    <div class="chart-container">
+        <div class="chart-title"><i class="fas fa-calendar-alt"></i> Timeline de Vencimentos (Próximos 12 Meses)</div>
+    """, unsafe_allow_html=True)
+    fig_venc = criar_grafico_vencimentos_premium(dados_graficos)
+    st.plotly_chart(fig_venc, use_container_width=True, config={'displayModeBar': False})
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# ==================== TAB 2 ====================
 with tab2:
-    st.markdown("### 💬 Assistente Executivo IA")
-    st.caption("Análises estratégicas com tabelas e recomendações práticas")
-    
-    perguntas = {
-        "📊 Resumo Executivo": "Forneça um resumo executivo completo com tabela dos principais projetos, métricas consolidadas e insights estratégicos",
-        "⚠️ Análise de Riscos": "Identifique os principais riscos operacionais com tabela de criticidade e recomendações urgentes",
-        "📈 Performance Operadoras": "Analise a performance por operadora com tabela comparativa e oportunidades de otimização",
-        "🔌 Análise de Conexões": "Detalhe a situação das conexões: chips que nunca conectaram, taxa de conectividade por operadora e projetos críticos",
-        "📅 Gestão Vencimentos": "Análise detalhada dos vencimentos com tabela de prioridades e plano de ação",
-        "💡 Plano de Ação": "Monte um plano de ação executivo com tabela de prioridades e responsabilidades"
-    }
-    
-    cols = st.columns(3)
-    for idx, (label, pergunta) in enumerate(perguntas.items()):
-        with cols[idx % 3]:
-            if st.button(label, key=f"btn_{idx}", use_container_width=True):
-                load_spot = st.empty()
-                with load_spot:
-                    show_loading("Gerando análise")
-                
-                result = process_chat_gerencial(pergunta, df)
-                load_spot.empty()
-                
-                st.session_state.messages.insert(0, {"role": "assistant", "content": result["answer"], "time": result["time"]})
-                st.session_state.messages.insert(0, {"role": "user", "content": label})
-                st.rerun()
-    
-    st.markdown("---")
-    
-    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-    
-    if not st.session_state.messages:
-        st.info("💡 **Dica:** Clique em um botão acima para análises estratégicas ou digite perguntas personalizadas")
-    else:
-        for msg in st.session_state.messages:
-            with st.chat_message(msg["role"], avatar="👤" if msg["role"] == "user" else "🤖"):
-                st.markdown(msg["content"])
-                if msg["role"] == "assistant" and "time" in msg:
-                    st.caption(f"⏱️ {msg['time']:.1f}s | 🤖 Groq AI | 📊 Análise Gerencial")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    if user_input := st.chat_input("💭 Digite sua pergunta executiva..."):
-        load_spot = st.empty()
-        with load_spot:
-            show_loading("Processando")
-        
-        result = process_chat_gerencial(user_input, df)
-        load_spot.empty()
-        
-        st.session_state.messages.insert(0, {"role": "assistant", "content": result["answer"], "time": result["time"]})
-        st.session_state.messages.insert(0, {"role": "user", "content": user_input})
-        st.rerun()
+    st.info("💬 **Assistente IA** - Em desenvolvimento para v4.1")
 
 st.markdown("---")
-st.caption("Base Mobile 2026 | Sistema Enterprise de Gestão de Licenças | Powered by Groq AI")
+st.caption("© 2026 Base Mobile | Dashboard Enterprise v4.0 Premium | Powered by Streamlit & Plotly")
