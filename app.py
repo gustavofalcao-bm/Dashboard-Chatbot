@@ -26,7 +26,7 @@ COLORS = {
 }
 
 CORES_ACAO = {
-    'ENTREGA': '#4CAF50', 'ATIVAÇÃO': '#2196F3', 'VINCULAÇÃO': '#FF9800',
+    'ENTREGA': "#4FB853", 'ATIVAÇÃO': '#2196F3', 'VINCULAÇÃO': '#FF9800',
     'EXPIRAÇÃO': '#F44336', 'CANCELAMENTO': '#9C27B0', 'RENOVAÇÃO': '#00BCD4',
     'PAGAMENTO': '#8BC34A', 'SUBSTITUIÇÃO': '#FFC107'
 }
@@ -869,7 +869,7 @@ with st.sidebar:
         st.markdown(f'<div style="text-align:center; padding:1.2rem; background:rgba(255,255,255,0.1); border-radius:14px; margin-bottom:1.5rem;"><img src="data:image/png;base64,{logo_icon}" style="max-width:90px;"></div>', unsafe_allow_html=True)
 
     st.markdown("### 📊 Base Mobile")
-    st.caption("Gestão Integrada • v6.4")
+    st.caption("Gestão Integrada • Projetos e Serviços")
     st.markdown("---")
 
     st.markdown("### 🎯 Navegação")
@@ -881,6 +881,12 @@ with st.sidebar:
     if st.button("📋 Dados Contratuais", use_container_width=True, type="primary" if st.session_state.pagina_atual == 'contratos' else "secondary"):
         st.session_state.pagina_atual = 'contratos'
         st.rerun()
+# ADIÇÃO DO CHATBOT - DELETAR SE FOR TIRAR 
+    if st.button("🤖 Chatbot IA", use_container_width=True, 
+                type="primary" if st.session_state.pagina_atual == "chatbot" else "secondary"):
+        st.session_state.pagina_atual = "chatbot"
+        st.rerun()
+
 
     st.markdown("---")
 
@@ -1213,7 +1219,7 @@ if st.session_state.pagina_atual == 'dashboard':
         st.info("ℹ️ Timeline não disponível. Adicione o arquivo DADOS-GERENCIAIS.xlsx")
 
     st.markdown("---")
-    st.markdown(f'<p style="text-align:center; color:#999;">⚡ Base Mobile v6.4 • {datetime.now().strftime("%d/%m/%Y")} • Enterprise Grade</p>', unsafe_allow_html=True)
+    st.markdown(f'<p style="text-align:center; color:#999;"> Base Mobile v6.4 • {datetime.now().strftime("%d/%m/%Y")} • Todos os direitos reservados </p>', unsafe_allow_html=True)
 
 # PÁGINA: DADOS CONTRATUAIS
 elif st.session_state.pagina_atual == 'contratos':
@@ -1320,4 +1326,17 @@ elif st.session_state.pagina_atual == 'contratos':
     components.html(html_contratos, height=700, scrolling=True)
 
     st.markdown("---")
-    st.markdown(f'<p style="text-align:center; color:#999;">⚡ Base Mobile v6.4 • {datetime.now().strftime("%d/%m/%Y")} • Enterprise Grade</p>', unsafe_allow_html=True)
+    st.markdown(f'<p style="text-align:center; color:#999;"> Base Mobile v6.4 • {datetime.now().strftime("%d/%m/%Y")} • Todos os direitos reservados </p>', unsafe_allow_html=True)
+    
+    # ==================== PÁGINA CHATBOT ====================
+# ==================== PÁGINA CHATBOT ====================
+elif st.session_state.pagina_atual == "chatbot":
+    from chatbot_pplx import render_chatbot
+    render_chatbot(
+        df=st.session_state.df_filtrado if st.session_state.df_filtrado is not None else st.session_state.df_base,
+        dfcontratos=st.session_state.df_contratos,
+        dftimeline=st.session_state.df_timeline
+    )
+    
+    st.markdown("---")
+    st.markdown(f'<p style="text-align:center; color:#999;"> Base Mobile v6.4 • {datetime.now().strftime("%d/%m/%Y")} • Todos os direitos reservados </p>', unsafe_allow_html=True)
